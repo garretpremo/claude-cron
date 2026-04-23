@@ -196,7 +196,116 @@ async function renderActivity() {
 }
 
 async function renderConfig() {
-  return h("div", { class: "placeholder" }, "Config view — stub");
+  const container = h("div", { class: "config-layout" });
+  const tree = h("div", { class: "config-tree" });
+  const detail = h("div", { class: "config-detail" });
+  container.append(tree, detail);
+
+  const projects = await api.get("/api/projects");
+  const selected = localStorage.getItem("cc:config-selected-job");
+
+  async function renderTree() {
+    tree.replaceChildren();
+    for (const p of projects) {
+      const projectNode = h("div", { class: "project" },
+        h("div", { class: "label" }, `▾ ${p.name}`)
+      );
+      const jobs = await api.get(`/api/projects/${p.name}/jobs`).catch(() => []);
+      for (const j of jobs) {
+        const key = `${p.name}/${j.name}`;
+        const cls = "job" + (key === selected ? " selected" : "");
+        projectNode.append(
+          h("div", { class: cls, onclick: () => openJob(p.name, j.name) },
+            j.name,
+            h("div", { class: "schedule" }, `${j.schedule} · ${j.enabled ? "enabled" : "disabled"}`)
+          )
+        );
+      }
+      tree.append(projectNode);
+    }
+  }
+
+  async function reloadTree() { await renderTree(); }
+
+  async function openJob(project, name) {
+    localStorage.setItem("cc:config-selected-job", `${project}/${name}`);
+    const detailData = await api.get(`/api/projects/${project}/jobs/${name}`);
+    detail.replaceChildren(jobDetailNode(detailData, async () => {
+      // After an action (enable/disable), refetch and re-render
+      const fresh = await api.get(`/api/projects/${project}/jobs/${name}`);
+      detail.replaceChildren(jobDetailNode(fresh, () => openJob(project, name)));
+      await renderTree();
+    }));
+  }
+
+  await renderTree();
+  if (selected) {
+    const [p, j] = selected.split("/");
+    if (p && j && projects.some((x) => x.name === p)) {
+      openJob(p, j).catch(() => { /* job may have been removed */ });
+    }
+  }
+
+  return container;
+}
+
+function jobDetailNode(job, onChange) {
+  const actions = h("div", { style: "margin:12px 0" });
+  if (job.enabled) {
+    actions.append(h("button", {
+      class: "btn",
+      onclick: async () => {
+        try { await api.post(`/api/projects/${job.project}/jobs/${job.name}/disable`); }
+        catch (e) { alert(e.message); return; }
+        onChange();
+      },
+    }, "Disable"));
+  } else {
+    actions.append(h("button", {
+      class: "btn",
+      onclick: async () => {
+        try { await api.post(`/api/projects/${job.project}/jobs/${job.name}/enable`); }
+        catch (e) { alert(e.message); return; }
+        onChange();
+      },
+    }, "Enable"));
+  }
+
+  const recent = h("div", {});
+  recent.append(h("h4", {}, "Recent runs"));
+  api.get(`/api/runs?project=${encodeURIComponent(job.project)}&job=${encodeURIComponent(job.name)}&limit=10`)
+    .then((data) => {
+      recent.replaceChildren(h("h4", {}, "Recent runs"));
+      if (data.runs.length === 0) {
+        recent.append(h("div", { style: "color:#888" }, "(none yet)"));
+        return;
+      }
+      for (const r of data.runs) {
+        recent.append(h("div", {
+          onclick: () => { location.hash = `#/config?run=${r.id}`; },
+          style: "padding:4px 0;cursor:pointer",
+        },
+          fmtTime(r.started_at), " ",
+          statusPill(r.status), " ",
+          fmtDuration(r.duration_ms), " ",
+          fmtCost(r.cost_usd)
+        ));
+      }
+    })
+    .catch(() => {
+      recent.replaceChildren(h("h4", {}, "Recent runs"), h("div", { style: "color:#f66" }, "(failed to load)"));
+    });
+
+  return h("div", {},
+    h("h3", {}, `${job.project}/${job.name}`),
+    job.description ? h("p", { style: "color:#aaa" }, job.description) : null,
+    h("div", {}, "Schedule: ", h("code", {}, job.schedule)),
+    h("div", {}, "Enabled: ", job.enabled ? "✅" : "⊘"),
+    actions,
+    h("h4", {}, "YAML"),
+    h("pre", {}, job.yaml),
+    recent,
+  );
 }
 
 function renderRunDetail() {
