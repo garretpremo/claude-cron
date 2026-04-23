@@ -9,6 +9,7 @@ import { cmdTest } from "./commands/test";
 import { cmdSync } from "./commands/sync";
 import { cmdLogs } from "./commands/logs";
 import { cmdStatus } from "./commands/status";
+import { cmdServe } from "./commands/serve";
 
 const program = new Command();
 program.name("claude-cron").version("0.1.0");
@@ -74,6 +75,12 @@ program.command("logs <target>")
 program.command("status")
   .description("Health check")
   .action(async () => { await cmdStatus(); });
+
+program.command("serve")
+  .description("Start the local dashboard + JSON API")
+  .option("--port <n>", "Port (default 8787)", (v) => parseInt(v, 10))
+  .option("--host <h>", "Host (default 127.0.0.1)")
+  .action(async (o) => { await cmdServe({ port: o.port, host: o.host }); });
 
 program.parseAsync().catch((e) => {
   console.error(e instanceof Error ? e.message : String(e));
