@@ -1,0 +1,203 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import YAML from "yaml";
+import type { Database } from "bun:sqlite";
+import { JobSchema, type Job } from "../job/schema";
+import {
+  insertRun, finishRun, appendEvent, abandonStaleRuns,
+  deleteOldRuns, type RunStatus, type EventType,
+} from "../db/queries";
+import { parseDuration } from "../util/duration";
+import { acquireLock } from "./lock";
+import { runPreflight } from "./preflight";
+import { resolvePrompt } from "./prompt";
+import { buildClaudeArgv } from "./claude";
+
+export interface ExecuteRunInput {
+  db: Database;
+  project: string;
+  jobFile: string;
+  lockPath: string;
+  extraPath?: string;   // prepended to PATH (lets tests point to mock claude)
+  isTest: boolean;
+}
+
+export interface ExecuteRunResult {
+  terminalStatus: RunStatus;
+  runId: number | null;
+  exitCode: number;
+}
+
+const ABANDONED_FLOOR_MS = 60 * 60 * 1000; // 1h
+
+export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> {
+  const now = Date.now();
+
+  // 1. Parse job (before stale sweep so we know the timeout)
+  let job: Job;
+  try {
+    const raw = readFileSync(i.jobFile, "utf8");
+    job = JobSchema.parse(YAML.parse(raw));
+  } catch (e) {
+    const id = insertRun(i.db, {
+      project: i.project, job: "<unknown>", fire_time: now,
+      started_at: now, schedule: "?", is_test: i.isTest,
+    });
+    finishRun(i.db, id, {
+      status: "config_error", exit_code: null, cost_usd: null,
+      summary: e instanceof Error ? e.message : String(e),
+      ended_at: Date.now(),
+    });
+    return { terminalStatus: "config_error", runId: id, exitCode: 2 };
+  }
+
+  const jobTimeoutMs = parseDuration(job.timeout);
+  const staleMs = Math.max(2 * jobTimeoutMs, ABANDONED_FLOOR_MS);
+
+  // 2. Abandoned sweep
+  abandonStaleRuns(i.db, now, staleMs);
+
+  // 3. Acquire lock
+  const lock = await acquireLock(i.lockPath);
+  if (!lock) {
+    const id = insertRun(i.db, {
+      project: i.project, job: job.name, fire_time: now,
+      started_at: now, schedule: job.schedule, is_test: i.isTest,
+    });
+    finishRun(i.db, id, {
+      status: "skipped_overlap", exit_code: null, cost_usd: null,
+      summary: null, ended_at: Date.now(),
+    });
+    return { terminalStatus: "skipped_overlap", runId: id, exitCode: 0 };
+  }
+
+  // 4. Insert running row
+  const runId = insertRun(i.db, {
+    project: i.project, job: job.name, fire_time: now,
+    started_at: Date.now(), schedule: job.schedule, is_test: i.isTest,
+  });
+
+  let seq = 0;
+  const emit = (type: EventType, payload: unknown) => {
+    appendEvent(i.db, runId, seq++, Date.now(), type, payload);
+  };
+  emit("start", { project: i.project, job: job.name });
+
+  // cwd: job.cwd is relative to the project root, which is the parent
+  // of the .claude-jobs dir. Since jobFile = <proj>/.claude-jobs/<name>.yaml,
+  // projectRoot = dirname(dirname(jobFile)).
+  const projectRoot = dirname(dirname(i.jobFile));
+  const cwdAbs = resolve(projectRoot, job.cwd);
+  const env: Record<string, string> = { ...process.env } as any;
+  if (i.extraPath) env.PATH = `${i.extraPath}:${env.PATH ?? ""}`;
+
+  try {
+    // 5. Preflight
+    if (job.preflight) {
+      const pf = await runPreflight({
+        run: job.preflight.run,
+        timeoutMs: parseDuration(job.preflight.timeout),
+        cwd: cwdAbs,
+        env,
+      });
+      emit("preflight", pf);
+      if (!pf.proceed) {
+        finishRun(i.db, runId, {
+          status: "skipped_preflight", exit_code: pf.exitCode,
+          cost_usd: null, summary: pf.timedOut ? "preflight timed out" : "preflight gated",
+          ended_at: Date.now(),
+        });
+        emit("end", { status: "skipped_preflight" });
+        await lock.release();
+        return { terminalStatus: "skipped_preflight", runId, exitCode: 0 };
+      }
+    }
+
+    // 6. Resolve prompt
+    let prompt: string;
+    try {
+      const r = await resolvePrompt({
+        claude: job.claude, cwd: cwdAbs,
+        timeoutMs: 30_000, env,
+      });
+      if (r.fromCmd) emit("prompt_cmd", r);
+      prompt = r.prompt;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      finishRun(i.db, runId, {
+        status: "config_error", exit_code: null,
+        cost_usd: null, summary: msg, ended_at: Date.now(),
+      });
+      emit("end", { status: "config_error", error: msg });
+      await lock.release();
+      return { terminalStatus: "config_error", runId, exitCode: 2 };
+    }
+
+    // 7. Build argv and spawn
+    const argv = buildClaudeArgv({ job, prompt, cwdAbsolute: cwdAbs });
+
+    const proc = Bun.spawn(argv, {
+      cwd: cwdAbs, env,
+      stdout: "pipe", stderr: "pipe",
+    });
+
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      try { proc.kill("SIGTERM"); } catch {}
+      setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5_000);
+    }, jobTimeoutMs);
+
+    const [stdoutText, stderrText, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+    clearTimeout(timeout);
+
+    for (const line of stdoutText.split("\n")) if (line) emit("claude_stdout", { line });
+    for (const line of stderrText.split("\n")) if (line) emit("claude_stderr", { line });
+
+    // 8. Parse terminal JSON (last valid JSON object on stdout)
+    let cost: number | null = null;
+    let summary: string | null = null;
+    const lines = stdoutText.split("\n").map((l) => l.trim()).filter(Boolean);
+    for (let k = lines.length - 1; k >= 0; k--) {
+      try {
+        const obj = JSON.parse(lines[k]!);
+        if (obj && typeof obj === "object") {
+          cost = typeof obj.cost_usd === "number" ? obj.cost_usd : null;
+          summary = typeof obj.result === "string" ? obj.result : null;
+          break;
+        }
+      } catch { /* keep scanning */ }
+    }
+
+    // 9. Terminal status
+    const status: RunStatus = timedOut
+      ? "timeout"
+      : exitCode === 0 ? "success" : "failure";
+
+    finishRun(i.db, runId, {
+      status, exit_code: timedOut ? null : exitCode,
+      cost_usd: cost, summary, ended_at: Date.now(),
+    });
+    emit("end", { status, exit_code: exitCode, cost });
+
+    // 10. Retention sweep
+    const cutoff = Date.now() - job.logging.retention_days * 86_400_000;
+    deleteOldRuns(i.db, i.project, job.name, cutoff);
+
+    await lock.release();
+    return { terminalStatus: status, runId, exitCode: status === "success" ? 0 : 1 };
+  } catch (e) {
+    finishRun(i.db, runId, {
+      status: "failure", exit_code: null, cost_usd: null,
+      summary: e instanceof Error ? e.message : String(e),
+      ended_at: Date.now(),
+    });
+    emit("end", { status: "failure", error: String(e) });
+    await lock.release();
+    return { terminalStatus: "failure", runId, exitCode: 1 };
+  }
+}

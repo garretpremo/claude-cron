@@ -1,0 +1,5 @@
+name: review
+schedule: "*/5 * * * *"
+claude:
+  prompt: "/review-issue 1"
+  allowed_tools: ["Read"]
