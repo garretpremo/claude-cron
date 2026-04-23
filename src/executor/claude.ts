@@ -36,6 +36,8 @@ export function buildClaudeArgv(i: BuildClaudeArgvInput): string[] {
 
   argv.push(...c.extra_args);
 
-  argv.push(prompt); // final positional
+  // `--` ends option parsing so variadic flags like `--allowed-tools <tools...>`
+  // don't swallow the prompt.
+  argv.push("--", prompt);
   return argv;
 }
