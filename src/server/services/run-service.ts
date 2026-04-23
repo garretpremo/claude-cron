@@ -35,7 +35,7 @@ function toRunDTO(r: RunRow): RunDTO {
 
 export function listRuns(db: Database, opts: ListRunsOpts): PaginatedRunsDTO {
   const wheres: string[] = [];
-  const args: unknown[] = [];
+  const args: (string | number)[] = [];
   if (opts.project) { wheres.push("project = ?"); args.push(opts.project); }
   if (opts.job) { wheres.push("job = ?"); args.push(opts.job); }
   if (opts.status && opts.status.length > 0) {
