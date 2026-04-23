@@ -3,9 +3,10 @@ import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import YAML from "yaml";
 import { readRegistry } from "../../job/registry";
-import { jobsDir } from "../../util/paths";
+import { jobsDir, lockPath } from "../../util/paths";
 import { getJob } from "./job-service";
 import { HttpError } from "../http/errors";
+import { executeRun } from "../../executor/run";
 import type { RunDTO, RunStatus, JobDetailDTO } from "../dto";
 
 const ENABLED_LINE = /^(\s*enabled:\s*)(true|false)(\s*(?:#.*)?)$/m;
@@ -103,4 +104,44 @@ export function stopRun(db: Database, runId: number, opts: StopRunOpts = {}): Ru
     is_test: row.is_test === 1,
     pid: row.pid,
   };
+}
+
+/**
+ * Kick off a job immediately (manual trigger from the dashboard). Returns as
+ * soon as the run row exists in the DB — does NOT wait for claude to finish.
+ * The run continues in the same process; its events stream into the DB and
+ * SSE subscribers see them live.
+ */
+export function runJobNow(
+  db: Database, registryPath: string, project: string, jobName: string,
+): Promise<{ run_id: number }> {
+  const reg = readRegistry(registryPath);
+  const p = reg.projects.find((x) => x.name === project);
+  if (!p) throw new HttpError(404, `Project ${project} not registered`, "NOT_FOUND");
+  const jobFile = join(jobsDir(p.path), `${jobName}.yaml`);
+  if (!existsSync(jobFile)) {
+    throw new HttpError(404, `Job ${project}/${jobName} not found`, "NOT_FOUND");
+  }
+
+  return new Promise<{ run_id: number }>((resolve, reject) => {
+    let settled = false;
+    executeRun({
+      db, project,
+      jobFile,
+      lockPath: lockPath(project, jobName),
+      isTest: false,
+      onStart: (id) => {
+        if (settled) return;
+        settled = true;
+        resolve({ run_id: id });
+      },
+    }).catch((e) => {
+      // executeRun is designed to catch its own errors and surface them via
+      // the run row; if we get here it's an unexpected failure before onStart.
+      if (!settled) {
+        settled = true;
+        reject(e);
+      }
+    });
+  });
 }

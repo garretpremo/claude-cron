@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import {
-  enableJob, disableJob, stopRun,
+  enableJob, disableJob, stopRun, runJobNow,
 } from "../services/action-service";
 import { json } from "../http/response";
 import { HttpError, toErrorResponse } from "../http/errors";
@@ -33,6 +33,11 @@ export function actionsController(
           throw new HttpError(400, "Invalid run id", "BAD_ID");
         }
         return json(stopRun(db, id));
+      } catch (e) { return toErrorResponse(e); }
+    },
+    run: async (project: string, job: string) => {
+      try {
+        return json(await runJobNow(db, registryPath, project, job));
       } catch (e) { return toErrorResponse(e); }
     },
   };

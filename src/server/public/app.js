@@ -250,7 +250,25 @@ async function renderConfig() {
 }
 
 function jobDetailNode(job, onChange) {
-  const actions = h("div", { style: "margin:12px 0" });
+  const actions = h("div", { style: "margin:12px 0; display:flex; gap:8px" });
+
+  const runNowBtn = h("button", {
+    class: "btn",
+    onclick: async () => {
+      runNowBtn.setAttribute("disabled", "");
+      runNowBtn.textContent = "Starting…";
+      try {
+        const { run_id } = await api.post(`/api/projects/${job.project}/jobs/${job.name}/run`);
+        location.hash = `#/config?run=${run_id}`;
+      } catch (e) {
+        alert(e.message);
+        runNowBtn.removeAttribute("disabled");
+        runNowBtn.textContent = "▶ Run now";
+      }
+    },
+  }, "▶ Run now");
+  actions.append(runNowBtn);
+
   if (job.enabled) {
     actions.append(h("button", {
       class: "btn",

@@ -20,6 +20,10 @@ export interface ExecuteRunInput {
   lockPath: string;
   extraPath?: string;   // prepended to PATH (lets tests point to mock claude)
   isTest: boolean;
+  /** Called exactly once, right after the run row is inserted (whatever the
+   *  eventual terminal status). Lets callers (e.g. the Run-now API) return
+   *  the run_id before the run completes. */
+  onStart?: (runId: number) => void;
 }
 
 export interface ExecuteRunResult {
@@ -43,6 +47,7 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
       project: i.project, job: "<unknown>", fire_time: now,
       started_at: now, schedule: "?", is_test: i.isTest,
     });
+    i.onStart?.(id);
     finishRun(i.db, id, {
       status: "config_error", exit_code: null, cost_usd: null,
       summary: e instanceof Error ? e.message : String(e),
@@ -64,6 +69,7 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
       project: i.project, job: job.name, fire_time: now,
       started_at: now, schedule: job.schedule, is_test: i.isTest,
     });
+    i.onStart?.(id);
     finishRun(i.db, id, {
       status: "skipped_overlap", exit_code: null, cost_usd: null,
       summary: null, ended_at: Date.now(),
@@ -76,6 +82,7 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
     project: i.project, job: job.name, fire_time: now,
     started_at: Date.now(), schedule: job.schedule, is_test: i.isTest,
   });
+  i.onStart?.(runId);
 
   let seq = 0;
   const emit = (type: EventType, payload: unknown) => {

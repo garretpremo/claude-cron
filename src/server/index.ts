@@ -48,6 +48,9 @@ export function startServer(opts: StartServerOpts) {
       "/api/projects/:project/jobs/:job/disable": {
         POST: (req) => actions.disable(req.params.project, req.params.job),
       },
+      "/api/projects/:project/jobs/:job/run": {
+        POST: (req) => actions.run(req.params.project, req.params.job),
+      },
       "/api/runs/:id/stop": {
         POST: (req) => actions.stop(req.params.id),
       },
