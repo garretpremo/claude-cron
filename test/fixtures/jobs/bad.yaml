@@ -1,0 +1,4 @@
+name: broken
+schedule: "not-a-cron"
+claude:
+  prompt: "hi"
