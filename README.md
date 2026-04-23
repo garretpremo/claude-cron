@@ -113,6 +113,47 @@ claude-cron status
 
 Reports registered projects, abandoned runs, recent failures, crontab prelude health.
 
+## Dashboard (Phase 2)
+
+Start the local dashboard + JSON API:
+
+```bash
+claude-cron serve                     # binds 127.0.0.1:8787 by default
+claude-cron serve --port 9000 --host 0.0.0.0
+```
+
+Open `http://127.0.0.1:8787` in a browser. Two views, toggleable in the top bar (or press `v`):
+
+- **Activity** — recent runs table with filters, auto-refreshes every 5s.
+- **Config** — project → jobs tree + detail panel with enable/disable actions.
+
+Click any run to open a side pane with the event trace. Running runs show a live tail via SSE.
+
+### Manual smoke test for stop
+
+In one terminal, create a job that blocks until signaled:
+
+```bash
+mkdir -p /tmp/cc-stop-smoke/.claude-jobs
+cat > /tmp/cc-stop-smoke/.claude-jobs/sleepy.yaml <<'EOF'
+name: sleepy
+schedule: "*/5 * * * *"
+enabled: true
+claude:
+  prompt: "hi"
+  allowed_tools: []
+  permission_mode: auto
+  extra_args: ["--block"]
+cwd: "."
+timeout: 5m
+logging: { retention_days: 1 }
+EOF
+cd /tmp/cc-stop-smoke && claude-cron register
+claude-cron test cc-stop-smoke/sleepy &
+```
+
+In another terminal: open `http://127.0.0.1:8787`, find the running row in Activity, click `■ stop`. Status should transition to `interrupted`.
+
 ## Auth modes
 
 - **subscription (default)** — uses your existing OAuth session via keyring. Works from cron because `init` wrote `DBUS_SESSION_BUS_ADDRESS` + `XDG_RUNTIME_DIR` to the prelude. `max_budget_usd` is inert.

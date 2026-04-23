@@ -1,11 +1,4 @@
 #!/usr/bin/env bash
-# Mock claude for integration tests.
-# Env-driven:
-#   MOCK_CLAUDE_EXIT       -- exit code (default 0)
-#   MOCK_CLAUDE_STDOUT_LINES -- lines to echo on stdout before final JSON
-#   MOCK_CLAUDE_COST_USD   -- reported cost (default 0.01)
-#   MOCK_CLAUDE_SUMMARY    -- summary text (default "ok")
-#   MOCK_CLAUDE_SLEEP_MS   -- sleep before exiting (ms)
 set -eu
 
 if [ -n "${MOCK_CLAUDE_STDOUT_LINES:-}" ]; then
@@ -15,6 +8,14 @@ fi
 if [ -n "${MOCK_CLAUDE_SLEEP_MS:-}" ]; then
   sleep "$(awk "BEGIN { print $MOCK_CLAUDE_SLEEP_MS / 1000 }")"
 fi
+
+# Any arg "--block" causes indefinite wait (until signalled).
+for arg in "$@"; do
+  if [ "$arg" = "--block" ]; then
+    # Wait forever (until SIGTERM / SIGKILL). Trap nothing — let default term kill us.
+    while true; do sleep 3600; done
+  fi
+done
 
 cost="${MOCK_CLAUDE_COST_USD:-0.01}"
 summary="${MOCK_CLAUDE_SUMMARY:-ok}"
