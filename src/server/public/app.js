@@ -26,6 +26,8 @@ const state = {
   selectedRunId: null,
 };
 
+let runDetailUnsubscribe = null;
+
 const filterState = JSON.parse(localStorage.getItem("cc:activity-filters") || "{}");
 function persistFilters() {
   localStorage.setItem("cc:activity-filters", JSON.stringify(filterState));
@@ -225,8 +227,6 @@ async function renderConfig() {
     }
   }
 
-  async function reloadTree() { await renderTree(); }
-
   async function openJob(project, name) {
     localStorage.setItem("cc:config-selected-job", `${project}/${name}`);
     const detailData = await api.get(`/api/projects/${project}/jobs/${name}`);
@@ -308,15 +308,81 @@ function jobDetailNode(job, onChange) {
   );
 }
 
-function renderRunDetail() {
+async function renderRunDetail() {
   const pane = document.getElementById("run-detail");
+  if (runDetailUnsubscribe) { runDetailUnsubscribe(); runDetailUnsubscribe = null; }
+
   if (state.selectedRunId == null) {
     pane.hidden = true;
     pane.replaceChildren();
     return;
   }
   pane.hidden = false;
-  pane.replaceChildren(h("div", {}, "Run detail — stub"));
+  pane.replaceChildren(h("div", {}, "Loading…"));
+
+  let run;
+  try {
+    run = await api.get(`/api/runs/${state.selectedRunId}`);
+  } catch (e) {
+    pane.replaceChildren(h("div", { style: "color:#f66" }, `Failed: ${e.message}`));
+    return;
+  }
+
+  const header = h("div", {},
+    h("button", { class: "close", onclick: () => { location.hash = `#/${state.view}`; } }, "×"),
+    h("h3", {}, `${run.project}/${run.job}`),
+    h("div", {},
+      statusPill(run.status), " · started ", fmtTime(run.started_at),
+      " · ", fmtDuration(run.duration_ms),
+      run.cost_usd != null ? ` · ${fmtCost(run.cost_usd)}` : ""
+    )
+  );
+
+  const eventsNode = h("div", { class: "events" });
+  const appendEvent = (e) => {
+    eventsNode.append(h("div", { class: "event" },
+      h("span", { class: "type" }, `#${e.seq}`),
+      h("span", { class: "type" }, e.type),
+      h("span", { style: "color:#888;font-size:10px" }, new Date(e.ts).toISOString()),
+      h("pre", { class: "payload" }, JSON.stringify(e.payload, null, 2))
+    ));
+  };
+  for (const e of run.events) appendEvent(e);
+
+  const actions = h("div", { style: "margin:12px 0" });
+  if (run.status === "running") {
+    actions.append(h("button", {
+      class: "btn btn-danger",
+      onclick: async () => {
+        try { await api.post(`/api/runs/${run.id}/stop`); }
+        catch (e) { alert(e.message); }
+      },
+    }, "■ stop"));
+  }
+
+  pane.replaceChildren(header, actions, eventsNode);
+
+  if (run.status === "running") {
+    let knownSeq = run.events.length > 0 ? run.events[run.events.length - 1].seq : -1;
+    runDetailUnsubscribe = api.subscribe(run.id, {
+      onEvent: (e) => {
+        if (e.seq <= knownSeq) return;
+        knownSeq = e.seq;
+        appendEvent(e);
+        pane.scrollTop = pane.scrollHeight;
+      },
+      onStatus: (s) => {
+        const pill = header.querySelector(".status-pill");
+        if (pill) { pill.className = `status-pill ${s.status}`; pill.textContent = s.status; }
+      },
+      onEnd: () => {
+        api.get(`/api/runs/${run.id}`).then(() => {
+          renderRunDetail();
+        }).catch(() => {});
+      },
+      onError: () => { /* EventSource auto-reconnects */ },
+    });
+  }
 }
 
 function init() {
