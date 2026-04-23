@@ -37,9 +37,11 @@ export async function cmdSync(opts: SyncOpts): Promise<void> {
     throw new Error(`Refusing to sync — ${r.errors.length} job file(s) invalid.`);
   }
 
-  const lines = r.loaded
-    .filter(({ job }) => job.enabled)
-    .map(({ job }) => renderCronLine({ project: name, job, binaryPath }));
+  const enabled = r.loaded.filter(({ job }) => job.enabled);
+  const disabled = r.loaded.length - enabled.length;
+  const lines = enabled.map(({ job }) =>
+    renderCronLine({ project: name, job, binaryPath })
+  );
 
   const current = readCrontab();
   const next = spliceBlock(current, name, lines);
@@ -50,5 +52,6 @@ export async function cmdSync(opts: SyncOpts): Promise<void> {
   }
 
   writeCrontab(next);
-  console.log(`Synced ${lines.length} job(s) into block ${name}.`);
+  const suffix = disabled > 0 ? ` (${disabled} disabled, skipped)` : "";
+  console.log(`Synced ${lines.length} job(s) into block ${name}${suffix}.`);
 }
