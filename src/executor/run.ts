@@ -152,31 +152,66 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
       setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5_000);
     }, jobTimeoutMs);
 
+    // Stream stdout/stderr line-by-line as the process runs. Each JSON line
+    // becomes its own event with the parsed object as payload; non-JSON lines
+    // fall back to `{ line: string }`.
+    const stdoutLines: string[] = [];
+    const streamLines = async (
+      stream: ReadableStream<Uint8Array>, onLine: (line: string) => void
+    ) => {
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          let nl = buf.indexOf("\n");
+          while (nl !== -1) {
+            const line = buf.slice(0, nl);
+            buf = buf.slice(nl + 1);
+            if (line) onLine(line);
+            nl = buf.indexOf("\n");
+          }
+        }
+        if (buf) onLine(buf);
+      } catch { /* stream closed (e.g. killed) */ }
+    };
+    const stdoutPromise = streamLines(proc.stdout, (line) => {
+      stdoutLines.push(line);
+      let payload: unknown;
+      try { payload = JSON.parse(line); } catch { payload = { line }; }
+      emit("claude_stdout", payload);
+    });
+    const stderrPromise = streamLines(proc.stderr, (line) => {
+      emit("claude_stderr", { line });
+    });
+
     const exitCode = await proc.exited;
     clearTimeout(timeout);
 
-    // Drain buffered output; race with a short timeout in case streams
-    // were not closed (e.g. process was killed by an external signal).
-    const drain = (s: ReadableStream<Uint8Array>) =>
-      Promise.race([new Response(s).text(), new Promise<string>((r) => setTimeout(() => r(""), 500))]);
-    const [stdoutText, stderrText] = await Promise.all([drain(proc.stdout), drain(proc.stderr)]);
+    // Give drains a beat to flush buffered output; race in case streams
+    // don't close cleanly after an external kill.
+    await Promise.race([
+      Promise.all([stdoutPromise, stderrPromise]),
+      new Promise((r) => setTimeout(r, 500)),
+    ]);
 
-    for (const line of stdoutText.split("\n")) if (line) emit("claude_stdout", { line });
-    for (const line of stderrText.split("\n")) if (line) emit("claude_stderr", { line });
-
-    // 8. Parse terminal JSON (last valid JSON object on stdout)
+    // 8. Extract cost/summary from the last stream-json `result` event.
     let cost: number | null = null;
     let summary: string | null = null;
-    const lines = stdoutText.split("\n").map((l) => l.trim()).filter(Boolean);
-    for (let k = lines.length - 1; k >= 0; k--) {
+    for (let k = stdoutLines.length - 1; k >= 0; k--) {
       try {
-        const obj = JSON.parse(lines[k]!);
-        if (obj && typeof obj === "object") {
-          cost = typeof obj.cost_usd === "number" ? obj.cost_usd : null;
+        const obj = JSON.parse(stdoutLines[k]!);
+        if (obj && typeof obj === "object" && obj.type === "result") {
+          cost = typeof obj.total_cost_usd === "number" ? obj.total_cost_usd
+               : typeof obj.cost_usd === "number" ? obj.cost_usd
+               : null;
           summary = typeof obj.result === "string" ? obj.result : null;
           break;
         }
-      } catch { /* keep scanning */ }
+      } catch { /* skip */ }
     }
 
     // 9. Terminal status

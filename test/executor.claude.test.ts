@@ -17,7 +17,8 @@ test("always-applied flags present", () => {
   expect(argv).toContain("--print");
   expect(argv).toContain("--no-session-persistence");
   expect(argv).toContain("--output-format");
-  expect(argv).toContain("json");
+  expect(argv).toContain("stream-json");
+  expect(argv).toContain("--verbose");
   expect(argv).toContain("--add-dir");
   expect(argv).toContain("/p");
 });

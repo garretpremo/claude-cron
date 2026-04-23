@@ -14,7 +14,8 @@ export function buildClaudeArgv(i: BuildClaudeArgvInput): string[] {
   // Always-applied
   argv.push("--print");
   argv.push("--no-session-persistence");
-  argv.push("--output-format", "json");
+  argv.push("--output-format", "stream-json");
+  argv.push("--verbose"); // required by --output-format stream-json with --print
   argv.push("--add-dir", cwdAbsolute);
   argv.push("--permission-mode", c.permission_mode);
 

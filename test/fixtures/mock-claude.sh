@@ -19,6 +19,10 @@ done
 
 cost="${MOCK_CLAUDE_COST_USD:-0.01}"
 summary="${MOCK_CLAUDE_SUMMARY:-ok}"
-printf '{"cost_usd":%s,"result":"%s"}\n' "$cost" "$summary"
+
+# Emit NDJSON matching --output-format stream-json shape.
+printf '{"type":"system","subtype":"init","session_id":"mock","model":"mock-model"}\n'
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"%s"}]}}\n' "$summary"
+printf '{"type":"result","subtype":"success","result":"%s","total_cost_usd":%s,"duration_ms":100,"num_turns":1}\n' "$summary" "$cost"
 
 exit "${MOCK_CLAUDE_EXIT:-0}"
