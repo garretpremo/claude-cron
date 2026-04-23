@@ -121,3 +121,71 @@ logging: { retention_days: 30 }
   expect(result.terminalStatus).toBe("skipped_overlap");
   await held!.release();
 });
+
+test("pid is recorded on run row after claude spawns", async () => {
+  const { dir, db } = fresh();
+  const mcDir = mockClaudeDir();
+
+  mkdirSync(join(dir, "project/.claude-jobs"));
+  const jobPath = join(dir, "project/.claude-jobs/j.yaml");
+  writeFileSync(jobPath, `
+name: j
+schedule: "*/5 * * * *"
+claude:
+  prompt: "hi"
+  allowed_tools: []
+  permission_mode: auto
+cwd: "."
+timeout: 5s
+logging: { retention_days: 30 }
+`);
+
+  await executeRun({
+    db, project: "p", jobFile: jobPath,
+    lockPath: join(dir, "locks/p--j.lock"),
+    extraPath: mcDir, isTest: false,
+  });
+
+  const row = db.query("SELECT pid FROM runs WHERE status='success' LIMIT 1").get() as any;
+  expect(row.pid).toBeGreaterThan(0);
+});
+
+test("SIGTERM to child produces status=interrupted", async () => {
+  const { dir, db } = fresh();
+  const mcDir = mockClaudeDir();
+
+  mkdirSync(join(dir, "project/.claude-jobs"));
+  const jobPath = join(dir, "project/.claude-jobs/j.yaml");
+  writeFileSync(jobPath, `
+name: j
+schedule: "*/5 * * * *"
+claude:
+  prompt: "hi"
+  allowed_tools: []
+  permission_mode: auto
+  extra_args: ["--block"]
+cwd: "."
+timeout: 30s
+logging: { retention_days: 30 }
+`);
+
+  const runPromise = executeRun({
+    db, project: "p", jobFile: jobPath,
+    lockPath: join(dir, "locks/p--j.lock"),
+    extraPath: mcDir, isTest: false,
+  });
+
+  // Poll for the pid to be populated, then SIGTERM the mock claude.
+  let pid: number | null = null;
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const row = db.query("SELECT pid FROM runs WHERE status='running'").get() as any;
+    if (row?.pid) { pid = row.pid; break; }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  expect(pid).not.toBeNull();
+  process.kill(pid!, "SIGTERM");
+
+  const result = await runPromise;
+  expect(result.terminalStatus).toBe("interrupted");
+});

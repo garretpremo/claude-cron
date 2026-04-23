@@ -141,6 +141,10 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
       stdout: "pipe", stderr: "pipe",
     });
 
+    if (proc.pid) {
+      i.db.query("UPDATE runs SET pid=? WHERE id=?").run(proc.pid, runId);
+    }
+
     let timedOut = false;
     const timeout = setTimeout(() => {
       timedOut = true;
@@ -148,12 +152,14 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
       setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5_000);
     }, jobTimeoutMs);
 
-    const [stdoutText, stderrText, exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited,
-    ]);
+    const exitCode = await proc.exited;
     clearTimeout(timeout);
+
+    // Drain buffered output; race with a short timeout in case streams
+    // were not closed (e.g. process was killed by an external signal).
+    const drain = (s: ReadableStream<Uint8Array>) =>
+      Promise.race([new Response(s).text(), new Promise<string>((r) => setTimeout(() => r(""), 500))]);
+    const [stdoutText, stderrText] = await Promise.all([drain(proc.stdout), drain(proc.stderr)]);
 
     for (const line of stdoutText.split("\n")) if (line) emit("claude_stdout", { line });
     for (const line of stderrText.split("\n")) if (line) emit("claude_stderr", { line });
@@ -174,9 +180,12 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
     }
 
     // 9. Terminal status
+    const wasSignaled = proc.signalCode !== null;
     const status: RunStatus = timedOut
       ? "timeout"
-      : exitCode === 0 ? "success" : "failure";
+      : wasSignaled
+        ? "interrupted"
+        : exitCode === 0 ? "success" : "failure";
 
     finishRun(i.db, runId, {
       status, exit_code: timedOut ? null : exitCode,
