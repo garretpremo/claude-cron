@@ -26,6 +26,11 @@ const state = {
   selectedRunId: null,
 };
 
+const filterState = JSON.parse(localStorage.getItem("cc:activity-filters") || "{}");
+function persistFilters() {
+  localStorage.setItem("cc:activity-filters", JSON.stringify(filterState));
+}
+
 function h(tag, attrs = {}, ...children) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -90,7 +95,104 @@ async function render() {
 }
 
 async function renderActivity() {
-  return h("div", { class: "placeholder" }, "Activity view — stub");
+  const container = h("div", {});
+
+  const projectSel = h("select", {
+    onchange: (e) => { filterState.project = e.target.value || undefined; persistFilters(); reloadActivity(); },
+  }, h("option", { value: "" }, "all projects"));
+
+  const statusSel = h("select", {
+    onchange: (e) => { filterState.status = e.target.value || undefined; persistFilters(); reloadActivity(); },
+  },
+    h("option", { value: "" }, "all statuses"),
+    ...["success", "failure", "timeout", "running", "interrupted",
+        "skipped_preflight", "skipped_overlap", "config_error", "abandoned"]
+      .map((s) => h("option", { value: s, selected: filterState.status === s }, s))
+  );
+
+  const clearBtn = h("button", {
+    class: "btn",
+    onclick: () => {
+      Object.keys(filterState).forEach((k) => delete filterState[k]);
+      persistFilters();
+      projectSel.value = "";
+      statusSel.value = "";
+      reloadActivity();
+    },
+  }, "Clear");
+
+  const projects = await api.get("/api/projects").catch(() => []);
+  for (const p of projects) {
+    const opt = h("option", { value: p.name, selected: filterState.project === p.name }, p.name);
+    projectSel.append(opt);
+  }
+
+  container.append(h("div", { class: "filters" }, projectSel, statusSel, clearBtn));
+
+  const table = h("table", { class: "runs" });
+  const tbody = h("tbody");
+  table.append(
+    h("thead", {}, h("tr", {},
+      h("th", {}, "time"),
+      h("th", {}, "project/job"),
+      h("th", {}, "status"),
+      h("th", {}, "duration"),
+      h("th", {}, "cost"),
+      h("th", {}, "")
+    )),
+    tbody
+  );
+  container.append(table);
+
+  async function reloadActivity() {
+    tbody.replaceChildren();
+    const q = new URLSearchParams();
+    if (filterState.project) q.set("project", filterState.project);
+    if (filterState.status) q.set("status", filterState.status);
+    q.set("limit", "100");
+    const data = await api.get("/api/runs?" + q.toString()).catch(() => ({ runs: [] }));
+    for (const r of data.runs) {
+      tbody.append(rowFor(r, reloadActivity));
+    }
+    if (data.runs.length === 0) {
+      tbody.append(h("tr", {}, h("td", { colspan: 6, style: "padding:12px;color:#888;text-align:center" }, "No runs.")));
+    }
+  }
+
+  function rowFor(r, reload) {
+    const actions = r.status === "running"
+      ? h("button", {
+          class: "btn btn-danger",
+          onclick: async (e) => {
+            e.stopPropagation();
+            try { await api.post(`/api/runs/${r.id}/stop`); }
+            catch (err) { alert(err.message); }
+            reload();
+          },
+        }, "■ stop")
+      : h("span", { style: "color:#888" }, "→");
+
+    return h("tr", { onclick: () => { location.hash = `#/${state.view}?run=${r.id}`; } },
+      h("td", {}, fmtTime(r.started_at)),
+      h("td", {}, `${r.project}/${r.job}`),
+      h("td", {}, statusPill(r.status)),
+      h("td", {}, fmtDuration(r.duration_ms)),
+      h("td", {}, fmtCost(r.cost_usd)),
+      h("td", {}, actions),
+    );
+  }
+
+  await reloadActivity();
+
+  if (!renderActivity._interval) {
+    renderActivity._interval = setInterval(() => {
+      if (document.visibilityState === "visible" && state.view === "activity") {
+        reloadActivity();
+      }
+    }, 5000);
+  }
+
+  return container;
 }
 
 async function renderConfig() {
