@@ -9,9 +9,29 @@ export interface SyncOpts {
   project?: string;
   global?: boolean;
   dryRun?: boolean;
+  remove?: boolean;
 }
 
 export async function cmdSync(opts: SyncOpts): Promise<void> {
+  // --remove: strip the managed block entirely, without needing the project
+  // to be registered. Name is taken directly from opts.project or --global.
+  if (opts.remove) {
+    const name = opts.global ? "global" : opts.project;
+    if (!name) {
+      throw new Error("`sync --remove` requires a project name or --global.");
+    }
+    const current = readCrontab();
+    const next = spliceBlock(current, name, [], { removeIfEmpty: true });
+    if (opts.dryRun) { console.log(diffLines(current, next)); return; }
+    if (next === current) {
+      console.log(`No block found for ${name}; nothing to remove.`);
+      return;
+    }
+    writeCrontab(next);
+    console.log(`Removed managed crontab block for ${name}.`);
+    return;
+  }
+
   const reg = readRegistry(PROJECTS_TOML);
   // process.argv[1] holds the invoked script path; when installed via `bun link`
   // this is the symlink path to the CLI entry. For sync, we write exactly that.

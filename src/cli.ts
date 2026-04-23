@@ -27,8 +27,9 @@ program.command("register [path]")
   });
 
 program.command("unregister <target>")
-  .description("Remove a project from the registry (by name or path)")
-  .action(async (target) => { await cmdUnregister({ target }); });
+  .description("Remove a project from the registry (by name or path). Also removes the managed crontab block by default.")
+  .option("--keep-crontab", "Leave the managed crontab block in place")
+  .action(async (target, o) => { await cmdUnregister({ target, keepCrontab: o.keepCrontab }); });
 
 program.command("list")
   .description("List jobs")
@@ -56,11 +57,12 @@ program.command("test <target>")
   });
 
 program.command("sync [project]")
-  .description("Rewrite a managed crontab block")
+  .description("Rewrite a managed crontab block (or remove it with --remove)")
   .option("--global")
   .option("--dry-run")
+  .option("--remove", "Delete the managed crontab block for <project> (or --global). Does not require the project to still be registered.")
   .action(async (project, o) => {
-    await cmdSync({ project, global: o.global, dryRun: o.dryRun });
+    await cmdSync({ project, global: o.global, dryRun: o.dryRun, remove: o.remove });
   });
 
 program.command("logs <target>")

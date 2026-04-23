@@ -6,7 +6,8 @@
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "build": "bun build src/cli.ts --target=bun --outfile=dist/claude-cron.js"
+    "build": "bun build src/cli.ts --target=bun --outfile=dist/claude-cron.js",
+    "install:global": "chmod +x src/cli.ts && mkdir -p $HOME/.bun/bin && ln -sf \"$PWD/src/cli.ts\" \"$HOME/.bun/bin/claude-cron\" && echo 'claude-cron installed at' $HOME/.bun/bin/claude-cron"
   },
   "dependencies": {
     "commander": "^12.1.0",
