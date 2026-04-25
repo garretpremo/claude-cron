@@ -205,9 +205,16 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
       new Promise((r) => setTimeout(r, 500)),
     ]);
 
-    // 8. Extract cost/summary from the last stream-json `result` event.
+    // 8. Extract cost / summary / token usage from the last stream-json
+    //    `result` event. On subscription auth, total_cost_usd is the
+    //    notional API-equivalent dollar amount (not a charge). Token counts
+    //    are the source of truth for "what this run consumed".
     let cost: number | null = null;
     let summary: string | null = null;
+    let inputTokens: number | null = null;
+    let outputTokens: number | null = null;
+    let cacheCreationTokens: number | null = null;
+    let cacheReadTokens: number | null = null;
     for (let k = stdoutLines.length - 1; k >= 0; k--) {
       try {
         const obj = JSON.parse(stdoutLines[k]!);
@@ -216,6 +223,14 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
                : typeof obj.cost_usd === "number" ? obj.cost_usd
                : null;
           summary = typeof obj.result === "string" ? obj.result : null;
+          const u = obj.usage;
+          if (u && typeof u === "object") {
+            const num = (v: unknown) => (typeof v === "number" ? v : null);
+            inputTokens = num(u.input_tokens);
+            outputTokens = num(u.output_tokens);
+            cacheCreationTokens = num(u.cache_creation_input_tokens);
+            cacheReadTokens = num(u.cache_read_input_tokens);
+          }
           break;
         }
       } catch { /* skip */ }
@@ -232,8 +247,14 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
     finishRun(i.db, runId, {
       status, exit_code: timedOut ? null : exitCode,
       cost_usd: cost, summary, ended_at: Date.now(),
+      input_tokens: inputTokens, output_tokens: outputTokens,
+      cache_creation_tokens: cacheCreationTokens, cache_read_tokens: cacheReadTokens,
     });
-    emit("end", { status, exit_code: exitCode, cost });
+    emit("end", {
+      status, exit_code: exitCode, cost,
+      input_tokens: inputTokens, output_tokens: outputTokens,
+      cache_creation_tokens: cacheCreationTokens, cache_read_tokens: cacheReadTokens,
+    });
 
     // 10. Retention sweep
     const cutoff = Date.now() - job.logging.retention_days * 86_400_000;

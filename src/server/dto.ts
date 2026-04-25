@@ -50,6 +50,14 @@ export interface RunDTO {
   schedule: string;
   is_test: boolean;
   pid: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_creation_tokens: number | null;
+  cache_read_tokens: number | null;
+  /** Set on the leader row when listRuns coalesced consecutive same-status
+   *  runs. The leader is the most recent in the group. Absent or 1 = no
+   *  coalescing. */
+  coalesced_count?: number;
 }
 
 export interface EventDTO {

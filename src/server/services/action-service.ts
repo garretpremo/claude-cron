@@ -103,6 +103,10 @@ export function stopRun(db: Database, runId: number, opts: StopRunOpts = {}): Ru
     schedule: row.schedule,
     is_test: row.is_test === 1,
     pid: row.pid,
+    input_tokens: row.input_tokens ?? null,
+    output_tokens: row.output_tokens ?? null,
+    cache_creation_tokens: row.cache_creation_tokens ?? null,
+    cache_read_tokens: row.cache_read_tokens ?? null,
   };
 }
 

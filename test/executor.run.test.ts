@@ -58,6 +58,52 @@ logging: { retention_days: 30 }
   expect(rows[0]!.cost_usd).toBe(0.01);
 });
 
+test("token usage from result event is recorded", async () => {
+  const { dir, db } = fresh();
+  const mcDir = mockClaudeDir();
+
+  mkdirSync(join(dir, "project/.claude-jobs"));
+  const jobPath = join(dir, "project/.claude-jobs/j.yaml");
+  writeFileSync(jobPath, `
+name: j
+schedule: "*/5 * * * *"
+preflight:
+  run: "exit 0"
+  timeout: 5s
+claude:
+  prompt: "hello"
+  allowed_tools: []
+  permission_mode: auto
+cwd: "."
+timeout: 5s
+logging: { retention_days: 30 }
+`);
+
+  const env = {
+    MOCK_CLAUDE_INPUT_TOKENS: "21",
+    MOCK_CLAUDE_OUTPUT_TOKENS: "5843",
+    MOCK_CLAUDE_CACHE_CREATION_TOKENS: "54534",
+    MOCK_CLAUDE_CACHE_READ_TOKENS: "841416",
+  };
+  for (const [k, v] of Object.entries(env)) process.env[k] = v;
+  try {
+    const result = await executeRun({
+      db, project: "p", jobFile: jobPath,
+      lockPath: join(dir, "locks/p--j.lock"),
+      extraPath: mcDir,
+      isTest: false,
+    });
+    expect(result.terminalStatus).toBe("success");
+    const row = getRecentRuns(db, "p", "j", 1)[0]!;
+    expect(row.input_tokens).toBe(21);
+    expect(row.output_tokens).toBe(5843);
+    expect(row.cache_creation_tokens).toBe(54534);
+    expect(row.cache_read_tokens).toBe(841416);
+  } finally {
+    for (const k of Object.keys(env)) delete process.env[k];
+  }
+});
+
 test("preflight skip: claude never invoked", async () => {
   const { dir, db } = fresh();
   const mcDir = mockClaudeDir();

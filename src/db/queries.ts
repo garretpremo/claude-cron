@@ -36,12 +36,26 @@ export interface FinishRunInput {
   cost_usd: number | null;
   summary: string | null;
   ended_at: number;
+  /** Token usage from the claude `result` event. All optional — only the
+   *  success path populates them; pre-claude terminal states (config_error,
+   *  skipped_*, etc.) leave them null. */
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cache_creation_tokens?: number | null;
+  cache_read_tokens?: number | null;
 }
 
 export function finishRun(db: Database, id: number, f: FinishRunInput): void {
   db.query(
-    `UPDATE runs SET status=?, exit_code=?, cost_usd=?, summary=?, ended_at=? WHERE id=?`
-  ).run(f.status, f.exit_code, f.cost_usd, f.summary, f.ended_at, id);
+    `UPDATE runs SET status=?, exit_code=?, cost_usd=?, summary=?, ended_at=?,
+       input_tokens=?, output_tokens=?, cache_creation_tokens=?, cache_read_tokens=?
+     WHERE id=?`
+  ).run(
+    f.status, f.exit_code, f.cost_usd, f.summary, f.ended_at,
+    f.input_tokens ?? null, f.output_tokens ?? null,
+    f.cache_creation_tokens ?? null, f.cache_read_tokens ?? null,
+    id,
+  );
 }
 
 export function appendEvent(
@@ -68,6 +82,8 @@ export interface RunRow {
   fire_time: number; started_at: number; ended_at: number | null;
   status: RunStatus; exit_code: number | null; cost_usd: number | null;
   summary: string | null; schedule: string; is_test: number;
+  input_tokens: number | null; output_tokens: number | null;
+  cache_creation_tokens: number | null; cache_read_tokens: number | null;
 }
 
 export function getRecentRuns(

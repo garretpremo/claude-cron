@@ -49,9 +49,34 @@ function h(tag, attrs = {}, ...children) {
   return el;
 }
 
-function fmtTime(ms) { return new Date(ms).toLocaleTimeString(); }
+function fmtTime(ms) {
+  const d = new Date(ms);
+  const now = new Date();
+  const time = d.toLocaleTimeString();
+  if (d.toDateString() === now.toDateString()) return time;
+  const dateOpts = d.getFullYear() === now.getFullYear()
+    ? { month: "short", day: "numeric" }
+    : { year: "numeric", month: "short", day: "numeric" };
+  return `${d.toLocaleDateString(undefined, dateOpts)} ${time}`;
+}
 function fmtDuration(ms) { return ms == null ? "—" : ms < 1000 ? `${ms}ms` : `${(ms/1000).toFixed(1)}s`; }
 function fmtCost(c) { return c == null ? "—" : `$${c.toFixed(4)}`; }
+function fmtTokens(n) {
+  if (n == null) return "—";
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  return `${(n / 1_000_000).toFixed(2).replace(/\.?0+$/, "")}M`;
+}
+function tokensTitle(r) {
+  if (r.output_tokens == null && r.input_tokens == null) return "no usage recorded";
+  const parts = [
+    `output: ${fmtTokens(r.output_tokens)}`,
+    `input: ${fmtTokens(r.input_tokens)}`,
+    `cache write: ${fmtTokens(r.cache_creation_tokens)}`,
+    `cache read: ${fmtTokens(r.cache_read_tokens)}`,
+  ];
+  return parts.join(" · ");
+}
 function statusPill(s) { return h("span", { class: `status-pill ${s}` }, s); }
 
 function setView(view) {
@@ -139,7 +164,8 @@ async function renderActivity() {
       h("th", {}, "project/job"),
       h("th", {}, "status"),
       h("th", {}, "duration"),
-      h("th", {}, "cost"),
+      h("th", { title: "output tokens — full breakdown in side panel" }, "tokens"),
+      h("th", { title: "API-equivalent (notional on subscription auth)" }, "$"),
       h("th", {}, "")
     )),
     tbody
@@ -152,12 +178,13 @@ async function renderActivity() {
     if (filterState.project) q.set("project", filterState.project);
     if (filterState.status) q.set("status", filterState.status);
     q.set("limit", "100");
+    q.set("coalesce", "skipped_preflight");
     const data = await api.get("/api/runs?" + q.toString()).catch(() => ({ runs: [] }));
     for (const r of data.runs) {
       tbody.append(rowFor(r, reloadActivity));
     }
     if (data.runs.length === 0) {
-      tbody.append(h("tr", {}, h("td", { colspan: 6, style: "padding:12px;color:#888;text-align:center" }, "No runs.")));
+      tbody.append(h("tr", {}, h("td", { colspan: 7, style: "padding:12px;color:#888;text-align:center" }, "No runs.")));
     }
   }
 
@@ -174,12 +201,19 @@ async function renderActivity() {
         }, "■ stop")
       : h("span", { style: "color:#888" }, "→");
 
+    const coalesced = r.coalesced_count && r.coalesced_count > 1;
+    const statusCell = coalesced
+      ? h("td", {}, statusPill(r.status), " ",
+          h("span", { style: "color:#888" }, `×${r.coalesced_count}`))
+      : h("td", {}, statusPill(r.status));
+
     return h("tr", { onclick: () => { location.hash = `#/${state.view}?run=${r.id}`; } },
       h("td", {}, fmtTime(r.started_at)),
       h("td", {}, `${r.project}/${r.job}`),
-      h("td", {}, statusPill(r.status)),
-      h("td", {}, fmtDuration(r.duration_ms)),
-      h("td", {}, fmtCost(r.cost_usd)),
+      statusCell,
+      h("td", {}, coalesced ? "—" : fmtDuration(r.duration_ms)),
+      h("td", { title: tokensTitle(r) }, coalesced ? "—" : fmtTokens(r.output_tokens)),
+      h("td", {}, coalesced ? "—" : fmtCost(r.cost_usd)),
       h("td", {}, actions),
     );
   }
@@ -291,7 +325,7 @@ function jobDetailNode(job, onChange) {
 
   const recent = h("div", {});
   recent.append(h("h4", {}, "Recent runs"));
-  api.get(`/api/runs?project=${encodeURIComponent(job.project)}&job=${encodeURIComponent(job.name)}&limit=10`)
+  api.get(`/api/runs?project=${encodeURIComponent(job.project)}&job=${encodeURIComponent(job.name)}&limit=10&coalesce=skipped_preflight`)
     .then((data) => {
       recent.replaceChildren(h("h4", {}, "Recent runs"));
       if (data.runs.length === 0) {
@@ -299,15 +333,20 @@ function jobDetailNode(job, onChange) {
         return;
       }
       for (const r of data.runs) {
-        recent.append(h("div", {
+        const row = h("div", {
           onclick: () => { location.hash = `#/config?run=${r.id}`; },
           style: "padding:4px 0;cursor:pointer",
-        },
-          fmtTime(r.started_at), " ",
-          statusPill(r.status), " ",
-          fmtDuration(r.duration_ms), " ",
-          fmtCost(r.cost_usd)
-        ));
+        }, fmtTime(r.started_at), " ", statusPill(r.status), " ");
+        if (r.coalesced_count && r.coalesced_count > 1) {
+          row.append(h("span", { style: "color:#888" }, `×${r.coalesced_count}`));
+        } else {
+          row.append(
+            fmtDuration(r.duration_ms), " ",
+            h("span", { title: tokensTitle(r) }, fmtTokens(r.output_tokens)), " ",
+            fmtCost(r.cost_usd),
+          );
+        }
+        recent.append(row);
       }
     })
     .catch(() => {
@@ -564,7 +603,14 @@ async function renderRunDetail() {
       statusPill(run.status), " · started ", fmtTime(run.started_at),
       " · ", fmtDuration(run.duration_ms),
       run.cost_usd != null ? ` · ${fmtCost(run.cost_usd)}` : ""
-    )
+    ),
+    run.output_tokens != null || run.input_tokens != null
+      ? h("div", { style: "color:#aaa;font-size:12px;margin-top:4px" },
+          `tokens · output ${fmtTokens(run.output_tokens)}`,
+          ` · input ${fmtTokens(run.input_tokens)}`,
+          ` · cache write ${fmtTokens(run.cache_creation_tokens)}`,
+          ` · cache read ${fmtTokens(run.cache_read_tokens)}`)
+      : null
   );
 
   const summaryNode = h("div", { class: "run-summary" });
