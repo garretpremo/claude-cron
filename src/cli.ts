@@ -82,7 +82,8 @@ program.command("serve")
   .description("Start the local dashboard + JSON API")
   .option("--port <n>", "Port (default 8787)", (v) => parseInt(v, 10))
   .option("--host <h>", "Host (default 127.0.0.1)")
-  .action(async (o) => { await cmdServe({ port: o.port, host: o.host }); });
+  .option("--allow-public", "Allow non-loopback bind (dashboard has NO auth)")
+  .action(async (o) => { await cmdServe({ port: o.port, host: o.host, allowPublic: o.allowPublic }); });
 
 program.parseAsync().catch((e) => {
   console.error(e instanceof Error ? e.message : String(e));
