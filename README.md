@@ -258,6 +258,7 @@ CI runs `bun test` + `bun run typecheck` on every push and PR to `main` (`.githu
 - `src/job/` — Zod schema, registry, YAML loader.
 - `src/server/` — dashboard (Bun.serve + static SPA in `public/`).
 - `test/` — `bun:test` suites.
+- `skills/` — Claude Code skills bundled with the project. Symlink or copy `skills/creating-claude-cron-job/` into `~/.claude/skills/` to get prompt-injection-aware guidance when authoring job YAML.
 - `CLAUDE.md` — guidance for AI assistants working in this repo.
 
 ## License
