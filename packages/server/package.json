@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "type": "module",
   "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/contract/index.ts",
+    "./contract/schemas": "./src/contract/schemas.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "dev": "bun --watch src/dev-entry.ts"

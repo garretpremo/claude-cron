@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.svelte-kit/
 *.db
 *.db-*
 .DS_Store
