@@ -41,6 +41,16 @@ const StatusCsv = z
     return parts as z.infer<typeof RunStatusSchema>[];
   });
 
+// Project filter: CSV-friendly. Splits on commas; arbitrary strings (no enum check).
+const ProjectCsv = z
+  .string()
+  .optional()
+  .transform((raw) => {
+    if (!raw) return undefined;
+    const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    return parts.length === 0 ? undefined : parts;
+  });
+
 const TriBool = z
   .enum(["true", "false"])
   .optional()
@@ -58,15 +68,27 @@ const NonNegativeInt = (fallback: number, max?: number) =>
       return n;
     });
 
+// Optional non-negative integer (epoch ms). Returns undefined when unset/invalid.
+const OptionalNonNegativeInt = z
+  .string()
+  .optional()
+  .transform((raw) => {
+    if (raw === undefined) return undefined;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return undefined;
+    return n;
+  });
+
 export function runsListRoute(deps: RunsDeps) {
   return defineRoute({
     path: "/api/runs",
     method: "GET",
     input: z.object({
-      project: TrimmedString,
+      project: ProjectCsv,
       job: TrimmedString,
       status: StatusCsv,
       is_test: TriBool,
+      since: OptionalNonNegativeInt,
       limit: NonNegativeInt(50, 500),
       offset: NonNegativeInt(0),
       coalesce: z.literal("skipped_preflight").optional(),
@@ -78,6 +100,7 @@ export function runsListRoute(deps: RunsDeps) {
         job: input.job,
         status: input.status,
         is_test: input.is_test,
+        since: input.since,
         limit: input.limit,
         offset: input.offset,
         coalesce: input.coalesce,

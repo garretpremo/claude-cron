@@ -176,4 +176,31 @@ tr.running td.time::before {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
 }
+
+/* Per-status chip color tokens. The chip text is the bare status string, so
+   coloring is purely cosmetic — keep the contrast pairs (container + on-container). */
+:global(.status-chip.status-success) {
+  --m3e-chip-container-color: var(--md-sys-color-tertiary-container);
+  --m3e-chip-label-text-color: var(--md-sys-color-on-tertiary-container);
+}
+:global(.status-chip.status-failure),
+:global(.status-chip.status-config_error) {
+  --m3e-chip-container-color: var(--md-sys-color-error-container);
+  --m3e-chip-label-text-color: var(--md-sys-color-on-error-container);
+}
+:global(.status-chip.status-running) {
+  --m3e-chip-container-color: var(--md-sys-color-primary-container);
+  --m3e-chip-label-text-color: var(--md-sys-color-on-primary-container);
+}
+:global(.status-chip.status-timeout),
+:global(.status-chip.status-interrupted),
+:global(.status-chip.status-abandoned) {
+  --m3e-chip-container-color: var(--md-sys-color-secondary-container);
+  --m3e-chip-label-text-color: var(--md-sys-color-on-secondary-container);
+}
+:global(.status-chip.status-skipped_preflight),
+:global(.status-chip.status-skipped_overlap) {
+  --m3e-chip-container-color: var(--md-sys-color-surface-container-high);
+  --m3e-chip-label-text-color: var(--md-sys-color-on-surface-variant);
+}
 </style>

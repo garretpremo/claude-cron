@@ -37,8 +37,9 @@ test("listRuns filters by project, job, status", () => {
   seedRun(db, { project: "a", job: "k", started_at: 2 }, { status: "failure" });
   seedRun(db, { project: "b", job: "j", started_at: 3 }, { status: "success" });
 
-  expect(listRuns(db, { project: "a", limit: 50, offset: 0 }).runs.length).toBe(2);
-  expect(listRuns(db, { project: "a", job: "j", limit: 50, offset: 0 }).runs.length).toBe(1);
+  expect(listRuns(db, { project: ["a"], limit: 50, offset: 0 }).runs.length).toBe(2);
+  expect(listRuns(db, { project: ["a"], job: "j", limit: 50, offset: 0 }).runs.length).toBe(1);
+  expect(listRuns(db, { project: ["a", "b"], limit: 50, offset: 0 }).runs.length).toBe(3);
   expect(listRuns(db, { status: ["success"], limit: 50, offset: 0 }).runs.length).toBe(2);
   expect(listRuns(db, { status: ["success", "failure"], limit: 50, offset: 0 }).runs.length).toBe(3);
 });
@@ -77,7 +78,7 @@ test("listRuns coalesce=skipped_preflight collapses consecutive runs", () => {
   }
 
   const r = listRuns(db, {
-    project: "p", job: "j",
+    project: ["p"], job: "j",
     limit: 10, offset: 0, coalesce: "skipped_preflight",
   });
   expect(r.runs.length).toBe(5);
@@ -101,7 +102,7 @@ test("listRuns coalesce respects limit and only counts groups", () => {
     { status: "success", ended_at: 252 });
 
   const r = listRuns(db, {
-    project: "p", job: "j",
+    project: ["p"], job: "j",
     limit: 2, offset: 0, coalesce: "skipped_preflight",
   });
   expect(r.runs.length).toBe(2);
@@ -139,7 +140,7 @@ test("listRuns coalesce only collapses the targeted status", () => {
       { status: "failure", ended_at: i + 1 });
   }
   const r = listRuns(db, {
-    project: "p", job: "j",
+    project: ["p"], job: "j",
     limit: 10, offset: 0, coalesce: "skipped_preflight",
   });
   expect(r.runs.length).toBe(3);

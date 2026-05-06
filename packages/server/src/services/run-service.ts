@@ -5,10 +5,12 @@ import type {
 } from "../dto";
 
 export interface ListRunsOpts {
-  project?: string;
+  project?: string[];
   job?: string;
   status?: string[];
   is_test?: boolean;
+  /** Inclusive lower bound on `started_at` (epoch ms). */
+  since?: number;
   limit: number;
   offset: number;
   /** When set, consecutive runs with this status collapse into a single
@@ -37,13 +39,17 @@ export function toRunDTO(r: RunRow): RunDTO {
 export function listRuns(db: Database, opts: ListRunsOpts): PaginatedRunsDTO {
   const wheres: string[] = [];
   const args: (string | number)[] = [];
-  if (opts.project) { wheres.push("project = ?"); args.push(opts.project); }
+  if (opts.project && opts.project.length > 0) {
+    wheres.push(`project IN (${opts.project.map(() => "?").join(",")})`);
+    args.push(...opts.project);
+  }
   if (opts.job) { wheres.push("job = ?"); args.push(opts.job); }
   if (opts.status && opts.status.length > 0) {
     wheres.push(`status IN (${opts.status.map(() => "?").join(",")})`);
     args.push(...opts.status);
   }
   if (opts.is_test !== undefined) { wheres.push("is_test = ?"); args.push(opts.is_test ? 1 : 0); }
+  if (opts.since !== undefined) { wheres.push("started_at >= ?"); args.push(opts.since); }
   const whereSql = wheres.length > 0 ? `WHERE ${wheres.join(" AND ")}` : "";
 
   const total = (db

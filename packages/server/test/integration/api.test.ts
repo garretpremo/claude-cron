@@ -60,6 +60,29 @@ test("GET /api/runs with filters", async () => {
   expect((await r2.json()).total).toBe(1);
 });
 
+test("GET /api/runs supports CSV project, CSV status, and since", async () => {
+  seedRun(db, { project: "a", job: "j", started_at: 100 }, { status: "success" });
+  seedRun(db, { project: "a", job: "j", started_at: 200 }, { status: "failure" });
+  seedRun(db, { project: "b", job: "j", started_at: 300 }, { status: "success" });
+  seedRun(db, { project: "c", job: "j", started_at: 400 }, { status: "timeout" });
+
+  // CSV project
+  const r1 = await fetch(`${baseUrl}/api/runs?project=a,b`);
+  expect((await r1.json()).total).toBe(3);
+
+  // CSV project + CSV status
+  const r2 = await fetch(`${baseUrl}/api/runs?project=a,b&status=success,failure`);
+  expect((await r2.json()).total).toBe(3);
+
+  // since (epoch ms) — only runs with started_at >= 250 should match
+  const r3 = await fetch(`${baseUrl}/api/runs?since=250`);
+  expect((await r3.json()).total).toBe(2);
+
+  // combined
+  const r4 = await fetch(`${baseUrl}/api/runs?project=a,b&status=success&since=150`);
+  expect((await r4.json()).total).toBe(1);
+});
+
 test("GET /api/runs/:id returns events", async () => {
   const id = seedRun(db, { project: "p", job: "j" }, { status: "success", ended_at: 100 });
   seedEvents(db, id, [["start", { p: "p" }], ["end", { status: "success" }]]);

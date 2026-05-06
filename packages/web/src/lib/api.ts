@@ -64,10 +64,17 @@ export const api = {
       plain(`/api/favorites/${encodeURIComponent(project)}`, { method: "DELETE" }),
   },
   runs: {
-    list: (params: Record<string, string | number | undefined> = {}) => {
+    list: (
+      params: Record<string, string | number | string[] | undefined> = {},
+    ) => {
       const q = new URLSearchParams();
       for (const [k, v] of Object.entries(params)) {
-        if (v !== undefined && v !== "") q.set(k, String(v));
+        if (v === undefined) continue;
+        if (Array.isArray(v)) {
+          if (v.length > 0) q.set(k, v.join(","));
+        } else if (v !== "") {
+          q.set(k, String(v));
+        }
       }
       const qs = q.toString();
       return getJson<PaginatedRunsDTO>(`/api/runs${qs ? `?${qs}` : ""}`);
