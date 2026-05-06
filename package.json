@@ -6,9 +6,9 @@
   "scripts": {
     "test": "bun test",
     "typecheck": "bun run --filter '*' typecheck",
-    "build": "bun run --filter @claude-cron/web build || true",
+    "build": "bun run --filter @claude-cron/web build",
     "dev": "bun run --filter @claude-cron/server dev & bun run --filter @claude-cron/web dev",
-    "install:global": "bun run build; bun run --filter @claude-cron/core install:global"
+    "install:global": "bun run build && bun run --filter @claude-cron/core install:global"
   },
   "devDependencies": {
     "@types/bun": "latest",

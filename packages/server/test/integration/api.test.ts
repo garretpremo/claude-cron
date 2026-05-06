@@ -92,8 +92,27 @@ test("GET / serves index.html", async () => {
   expect(text).toContain("claude-cron");
 });
 
-test("GET /assets/app.css serves CSS", async () => {
-  const r = await fetch(`${baseUrl}/assets/app.css`);
+test("GET /_app/* serves SvelteKit immutable assets", async () => {
+  // Pull a real asset path out of the rendered index.html so we don't bake
+  // a content hash into the test.
+  const indexHtml = await (await fetch(baseUrl + "/")).text();
+  const match = indexHtml.match(/\/_app\/immutable\/[^"' ]+\.js/);
+  expect(match).not.toBeNull();
+  const r = await fetch(`${baseUrl}${match![0]}`);
   expect(r.status).toBe(200);
-  expect(r.headers.get("content-type")).toMatch(/text\/css/);
+  expect(r.headers.get("content-type")).toMatch(/javascript/);
+  expect(r.headers.get("cache-control")).toMatch(/immutable/);
+});
+
+test("SPA fallback: unknown path serves index.html", async () => {
+  const r = await fetch(`${baseUrl}/projects/whatever/jobs/whatever`);
+  expect(r.status).toBe(200);
+  expect(r.headers.get("content-type")).toMatch(/text\/html/);
+  const text = await r.text();
+  expect(text).toContain("claude-cron");
+});
+
+test("SPA fallback does not capture /api/* misses", async () => {
+  const r = await fetch(`${baseUrl}/api/this-route-does-not-exist`);
+  expect(r.status).toBe(404);
 });

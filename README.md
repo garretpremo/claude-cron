@@ -34,11 +34,12 @@ There is no npm/Homebrew package yet. Install from source:
 git clone https://github.com/garretpremo/claude-cron ~/projects/claude-cron
 cd ~/projects/claude-cron
 bun install
-bun run install:global   # symlinks src/cli.ts into ~/.bun/bin/claude-cron
+bun run install:global   # builds the SvelteKit dashboard, then symlinks
+                         # packages/core/src/cli.ts into ~/.bun/bin/claude-cron
 claude-cron --help
 ```
 
-The CLI runs directly from `src/cli.ts` via the `#!/usr/bin/env bun` shebang — no build step needed.
+The first run builds the SvelteKit dashboard (~5-15s) into `packages/web/dist/`, then symlinks the CLI. The CLI itself runs directly from `packages/core/src/cli.ts` via the `#!/usr/bin/env bun` shebang. After the first install, edits to CLI sources take effect immediately; edits to the web bundle require `bun run build`.
 
 ## First-time setup
 
@@ -240,24 +241,24 @@ In another terminal: open `http://127.0.0.1:8787`, find the running row in Activ
 ## Development
 
 ```bash
-bun test                 # ~95 tests
-bun test test/foo.test.ts -t "pattern"   # single file / test
-bun run typecheck        # tsc --noEmit
-bun run build            # bundle to dist/claude-cron.js (not needed for local dev)
+bun test                                            # workspace-wide (~115 tests)
+bun test packages/core/test/foo.test.ts -t "pat"    # single file / test
+bun run typecheck                                   # core + server (tsc --noEmit)
+bun run --filter @claude-cron/web typecheck         # svelte-check
+bun run --filter @claude-cron/web e2e               # playwright smokes
+bun run dev                                         # vite dev (web) + Bun.serve (api)
+bun run build                                       # vite build of the web bundle
+bun run install:global                              # build then symlink the CLI
 ```
 
 CI runs `bun test` + `bun run typecheck` on every push and PR to `main` (`.github/workflows/ci.yml`).
 
 ## Project layout
 
-- `docs/specs/`, `docs/plans/` — design docs (Phase 1 + Phase 2). Authoritative for executor / scheduling / DB semantics.
-- `src/cli.ts` + `src/commands/` — Commander dispatch, one subcommand per file.
-- `src/executor/` — the run state machine. All run lifecycle invariants live in `run.ts`.
-- `src/cron/` — managed crontab block render + splice.
-- `src/db/` — SQLite schema, migrations, queries.
-- `src/job/` — Zod schema, registry, YAML loader.
-- `src/server/` — dashboard (Bun.serve + static SPA in `public/`).
-- `test/` — `bun:test` suites.
+- `docs/specs/`, `docs/plans/` — design docs (Phase 1, Phase 2, Phase 3). Authoritative for executor / scheduling / DB semantics + dashboard contract + M3 migration.
+- `packages/core/` — CLI + executor + db + cron + job loader. Framework-free; the source of truth for run lifecycle and on-disk state.
+- `packages/server/` — Bun.serve dashboard API. Routes go through a zod-driven contract registry; OpenAPI + Scalar docs live at `/openapi.json` and `/docs`.
+- `packages/web/` — SvelteKit + M3E PWA dashboard (built by adapter-static into `packages/web/dist/`, served by `packages/server/`).
 - `skills/` — Claude Code skills bundled with the project. Symlink or copy `skills/creating-claude-cron-job/` into `~/.claude/skills/` to get prompt-injection-aware guidance when authoring job YAML.
 - `CLAUDE.md` — guidance for AI assistants working in this repo.
 

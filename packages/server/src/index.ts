@@ -77,10 +77,18 @@ export function startServer(opts: StartServerOpts) {
     hostname: opts.host,
     routes: {
       "/": () => statik.index(),
+      // SvelteKit immutable app dir.
+      "/_app/*": (req) => {
+        const url = new URL(req.url);
+        return statik.asset(url.pathname.replace(/^\/+/, ""));
+      },
+      // Legacy asset path kept so any existing deep-links still resolve.
       "/assets/*": (req) => {
         const url = new URL(req.url);
         return statik.asset(url.pathname.replace(/^\/assets\//, ""));
       },
+      "/favicon.png": () => statik.asset("favicon.png"),
+      "/favicon.ico": () => statik.asset("favicon.ico"),
 
       // SSE — kept outside the contract registry. The contract adapter only
       // handles JSON request/response; this endpoint is a long-lived stream.
@@ -90,7 +98,18 @@ export function startServer(opts: StartServerOpts) {
       "/docs": () => new Response(scalarHtml(), { headers: { "content-type": "text/html" } }),
       ...contractRoutes,
     },
-    fetch(_req) {
+    fetch(req) {
+      const url = new URL(req.url);
+      const path = url.pathname;
+      // /api/* paths that didn't match a registered route -> 404.
+      if (path.startsWith("/api/")) {
+        return new Response("Not found", { status: 404 });
+      }
+      // SPA fallback: any other GET serves index.html so the client router
+      // can resolve client-side routes (e.g. /projects/foo/jobs/bar).
+      if (req.method === "GET" || req.method === "HEAD") {
+        return statik.fallback();
+      }
       return new Response("Not found", { status: 404 });
     },
     error(err) {

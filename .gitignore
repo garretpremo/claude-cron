@@ -5,3 +5,8 @@ dist/
 *.db-*
 .DS_Store
 .superpowers/
+
+# playwright
+test-results/
+playwright-report/
+.playwright/
