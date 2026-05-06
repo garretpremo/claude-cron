@@ -1,6 +1,6 @@
 import { DB_PATH, PROJECTS_TOML } from "../util/paths";
 import { openDb } from "../db/connection";
-import { startServer } from "../server";
+import { startServer } from "@claude-cron/server";
 
 export interface ServeOpts {
   port?: number;

@@ -4,7 +4,7 @@ import {
 } from "../services/action-service";
 import { json } from "../http/response";
 import { HttpError, toErrorResponse } from "../http/errors";
-import { cmdSync } from "../../commands/sync";
+import { cmdSync } from "@claude-cron/core";
 
 type SyncFn = (project: string) => Promise<void>;
 

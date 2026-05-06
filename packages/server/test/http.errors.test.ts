@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { HttpError, toErrorResponse } from "../../src/server/http/errors";
+import { HttpError, toErrorResponse } from "../src/http/errors";
 
 test("HttpError carries status + code", () => {
   const e = new HttpError(404, "Not found", "NOT_FOUND");

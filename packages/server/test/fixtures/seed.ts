@@ -1,12 +1,12 @@
 import type { Database } from "bun:sqlite";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { InsertRunInput, EventType, RunStatus } from "../../../src/db/queries";
-import { insertRun, appendEvent, finishRun } from "../../../src/db/queries";
+import type { InsertRunInput, EventType, RunStatus } from "@claude-cron/core";
+import { insertRun, appendEvent, finishRun } from "@claude-cron/core";
 import {
   writeRegistry, addProject, readRegistry,
   type ProjectEntry,
-} from "../../../src/job/registry";
+} from "@claude-cron/core";
 
 export interface SeedRunOpts {
   status?: RunStatus;

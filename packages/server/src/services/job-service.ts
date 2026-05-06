@@ -1,11 +1,11 @@
 import type { Database } from "bun:sqlite";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { readRegistry, type ProjectEntry } from "../../job/registry";
-import { loadJobsFromDir } from "../../job/loader";
-import { jobsDir } from "../../util/paths";
+import { readRegistry, type ProjectEntry } from "@claude-cron/core";
+import { loadJobsFromDir } from "@claude-cron/core";
+import { jobsDir } from "@claude-cron/core";
 import type { JobSummaryDTO, JobDetailDTO, RunStatus } from "../dto";
-import { JobSchema } from "../../job/schema";
+import { JobSchema } from "@claude-cron/core";
 import YAML from "yaml";
 
 const RECENT_WINDOW = 50;

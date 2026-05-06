@@ -1,5 +1,5 @@
-import type { RunStatus, EventType } from "../db/queries";
-import type { Job } from "../job/schema";
+import type { RunStatus, EventType } from "@claude-cron/core";
+import type { Job } from "@claude-cron/core";
 
 export type { RunStatus, EventType };
 

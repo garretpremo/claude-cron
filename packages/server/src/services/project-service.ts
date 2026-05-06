@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { existsSync, readdirSync } from "node:fs";
-import { readRegistry, type ProjectEntry } from "../../job/registry";
-import { jobsDir } from "../../util/paths";
+import { readRegistry, type ProjectEntry } from "@claude-cron/core";
+import { jobsDir } from "@claude-cron/core";
 import type { ProjectDTO } from "../dto";
 
 function projectToDTO(db: Database, p: ProjectEntry): ProjectDTO {

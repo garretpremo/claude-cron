@@ -1,8 +1,8 @@
 import type { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
-import { readRegistry } from "../../job/registry";
-import { readCrontab } from "../../cron/sync";
-import { PROJECTS_TOML, DB_PATH, SECRETS_ENV, ROOT } from "../../util/paths";
+import { readRegistry } from "@claude-cron/core";
+import { readCrontab } from "@claude-cron/core";
+import { PROJECTS_TOML, DB_PATH, SECRETS_ENV, ROOT } from "@claude-cron/core";
 import { json } from "../http/response";
 import { toErrorResponse } from "../http/errors";
 import type { StatusDTO } from "../dto";

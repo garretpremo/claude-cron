@@ -4,20 +4,41 @@
   "workspaces": {
     "": {
       "name": "claude-cron",
+      "devDependencies": {
+        "@types/bun": "latest",
+        "typescript": "^5.5.0",
+      },
+    },
+    "packages/core": {
+      "name": "@claude-cron/core",
+      "version": "0.1.0",
+      "bin": {
+        "claude-cron": "./src/cli.ts",
+      },
       "dependencies": {
+        "@claude-cron/server": "workspace:*",
         "@iarna/toml": "^2.2.5",
         "commander": "^12.1.0",
         "cron-parser": "^4.9.0",
         "yaml": "^2.5.0",
         "zod": "^3.23.0",
       },
-      "devDependencies": {
-        "@types/bun": "latest",
-        "typescript": "^5.5.0",
+    },
+    "packages/server": {
+      "name": "@claude-cron/server",
+      "version": "0.1.0",
+      "dependencies": {
+        "@claude-cron/core": "workspace:*",
+        "yaml": "^2.5.0",
+        "zod": "^3.23.0",
       },
     },
   },
   "packages": {
+    "@claude-cron/core": ["@claude-cron/core@workspace:packages/core"],
+
+    "@claude-cron/server": ["@claude-cron/server@workspace:packages/server"],
+
     "@iarna/toml": ["@iarna/toml@2.2.5", "", {}, "sha512-trnsAYxU3xnS1gPHPyU961coFyLkh4gAD/0zQ5mymY4yOZ+CYvsPqUbOFSw0aDM4y0tV7tiFxL/1XfXPNC6IPg=="],
 
     "@types/bun": ["@types/bun@1.3.13", "", { "dependencies": { "bun-types": "1.3.13" } }, "sha512-9fqXWk5YIHGGnUau9TEi+qdlTYDAnOj+xLCmSTwXfAIqXr2x4tytJb43E9uCvt09zJURKXwAtkoH4nLQfzeTXw=="],

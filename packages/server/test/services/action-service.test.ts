@@ -2,11 +2,11 @@ import { expect, test } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtempSync, mkdirSync, readFileSync } from "node:fs";
-import { openDb } from "../../../src/db/connection";
+import { openDb } from "@claude-cron/core";
 import {
   enableJob, disableJob, stopRun,
-} from "../../../src/server/services/action-service";
-import { HttpError } from "../../../src/server/http/errors";
+} from "../../src/services/action-service";
+import { HttpError } from "../../src/http/errors";
 import { seedProject, seedJobFile, seedRun } from "../fixtures/seed";
 
 function fresh() {

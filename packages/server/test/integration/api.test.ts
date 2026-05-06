@@ -2,8 +2,8 @@ import { expect, test, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtempSync, mkdirSync } from "node:fs";
-import { openDb } from "../../../src/db/connection";
-import { startServer } from "../../../src/server";
+import { openDb } from "@claude-cron/core";
+import { startServer } from "../../src";
 import { seedProject, seedJobFile, seedRun, seedEvents } from "../fixtures/seed";
 
 let server: ReturnType<typeof startServer>["server"];

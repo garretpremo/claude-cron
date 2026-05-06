@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtempSync } from "node:fs";
-import { openDb } from "../../../src/db/connection";
-import { listRuns, getRunWithEvents } from "../../../src/server/services/run-service";
+import { openDb } from "@claude-cron/core";
+import { listRuns, getRunWithEvents } from "../../src/services/run-service";
 import { seedRun, seedEvents } from "../fixtures/seed";
 
 function fresh() {
