@@ -3,6 +3,7 @@ import { onDestroy, onMount } from "svelte";
 import { browser } from "$app/environment";
 import { api, type RunWithEventsDTO } from "$lib/api";
 import { runStream, type RunEvent, type RunStream } from "$lib/stores/run-stream";
+import EventLog from "./EventLog.svelte";
 if (browser) void import("@m3e/chips");
 
 interface Props {
@@ -45,10 +46,6 @@ function onKeyDown(e: KeyboardEvent) {
 
 function onBackdrop(e: MouseEvent) {
   if (e.target === e.currentTarget) onClose();
-}
-
-function summarize(ev: { type: string; payload?: unknown }): string {
-  return JSON.stringify(ev.payload ?? null).slice(0, 240);
 }
 
 function formatCost(c: number | null | undefined): string {
@@ -143,11 +140,11 @@ $effect(() => {
         </div>
 
         <h3>Event trace</h3>
-        <pre class="events">
-{#each detail.events as ev (ev.seq)}{ev.type}: {summarize(ev)}
-{/each}{#if live}{#each liveEvents as ev (ev.seq)}LIVE {ev.type}: {summarize(ev)}
-{/each}{/if}
-        </pre>
+        <EventLog
+          events={detail.events}
+          liveEvents={live ? liveEvents : []}
+          startedAt={detail.started_at}
+        />
       {/if}
     </div>
 
@@ -253,18 +250,6 @@ h3 {
   margin: 0 0 var(--space-sm);
   font-size: var(--font-size-md);
   font-weight: 500;
-}
-pre.events {
-  background: var(--md-sys-color-surface);
-  color: var(--md-sys-color-on-surface);
-  border-radius: 8px;
-  padding: var(--space-md);
-  font-size: var(--font-size-xs);
-  overflow: auto;
-  margin: 0 0 var(--space-md);
-  max-height: 320px;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 .foot {
   display: flex;
