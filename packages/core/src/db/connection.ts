@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 
 const SCHEMA_PATH = new URL("./schema.sql", import.meta.url).pathname;
 const MIGRATIONS_DIR = new URL("./migrations/", import.meta.url).pathname;
-const CURRENT_VERSION = 3;
+const CURRENT_VERSION = 4;
 
 export function openDb(path: string): Database {
   mkdirSync(dirname(resolve(path)), { recursive: true });

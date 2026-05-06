@@ -7,11 +7,23 @@ export {
   abandonStaleRuns,
   getRecentRuns,
   deleteOldRuns,
+  listFavorites,
+  setFavorite,
+  unsetFavorite,
+  getCountsSince,
+  getRunningRuns,
+  getTopProjectsByActivity,
+  getTopJobsByActivity,
+  getJobStatsSince,
   type RunStatus,
   type EventType,
   type InsertRunInput,
   type FinishRunInput,
   type RunRow,
+  type StatusCounts,
+  type ProjectActivityRow,
+  type JobActivityRow,
+  type JobStatsResult,
 } from "./db/queries";
 export * as queries from "./db/queries";
 

@@ -119,6 +119,77 @@ export const StatusDTOSchema = z.object({
 });
 export type StatusDTO = z.infer<typeof StatusDTOSchema>;
 
+// ---------------------------------------------------------------------------
+// Dashboard / favorites
+// ---------------------------------------------------------------------------
+
+export const SinceSchema = z.enum(["24h", "7d", "30d"]).default("24h");
+export type Since = z.infer<typeof SinceSchema>;
+
+export const CountsSchema = z.object({
+  running: z.number().int(),
+  success: z.number().int(),
+  failure: z.number().int(),
+  timeout: z.number().int(),
+  interrupted: z.number().int(),
+  abandoned: z.number().int(),
+  skipped_preflight: z.number().int(),
+  skipped_overlap: z.number().int(),
+  config_error: z.number().int(),
+});
+export type Counts = z.infer<typeof CountsSchema>;
+
+export const ProjectActivitySchema = z.object({
+  project: z.string(),
+  active_count: z.number().int(),
+  last_started: z.number(),
+});
+export type ProjectActivity = z.infer<typeof ProjectActivitySchema>;
+
+export const JobActivitySchema = z.object({
+  project: z.string(),
+  job: z.string(),
+  success_count: z.number().int(),
+  failure_count: z.number().int(),
+  skipped_count: z.number().int(),
+  last_started: z.number(),
+});
+export type JobActivity = z.infer<typeof JobActivitySchema>;
+
+export const DashboardDTOSchema = z.object({
+  counts: CountsSchema,
+  running: z.array(RunDTOSchema),
+  top_projects: z.array(ProjectActivitySchema),
+  top_jobs: z.array(JobActivitySchema),
+});
+export type DashboardDTO = z.infer<typeof DashboardDTOSchema>;
+
+export const ProjectDashboardDTOSchema = z.object({
+  counts: CountsSchema,
+  running: z.array(RunDTOSchema),
+  top_jobs: z.array(JobActivitySchema),
+});
+export type ProjectDashboardDTO = z.infer<typeof ProjectDashboardDTOSchema>;
+
+export const JobStatsDTOSchema = z.object({
+  counts: z.array(z.object({
+    status: RunStatusSchema,
+    n: z.number().int(),
+  })),
+  totals: z.object({
+    i: z.number(),
+    o: z.number(),
+    c: z.number(),
+  }),
+  last_run: RunDTOSchema.nullable(),
+});
+export type JobStatsDTO = z.infer<typeof JobStatsDTOSchema>;
+
+export const FavoritesDTOSchema = z.object({
+  favorites: z.array(z.string()),
+});
+export type FavoritesDTO = z.infer<typeof FavoritesDTOSchema>;
+
 export const ErrorDTOSchema = z.object({
   error: z.string(),
   code: z.string(),

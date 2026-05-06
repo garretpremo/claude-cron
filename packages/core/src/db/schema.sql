@@ -31,6 +31,11 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE INDEX IF NOT EXISTS idx_runs_project_job_time ON runs(project, job, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status, started_at DESC);
 
+CREATE TABLE IF NOT EXISTS favorites (
+  project    TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS events (
   run_id      INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
   seq         INTEGER NOT NULL,

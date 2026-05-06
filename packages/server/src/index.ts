@@ -17,6 +17,16 @@ import {
   jobRunRoute,
   runStopRoute,
 } from "./routes/actions";
+import {
+  favoritesListRoute,
+  favoriteSetRoute,
+  favoriteUnsetRoute,
+} from "./routes/favorites";
+import {
+  dashboardGlobalRoute,
+  dashboardProjectRoute,
+  jobStatsRoute,
+} from "./routes/dashboard";
 
 export interface StartServerOpts {
   db: Database;
@@ -48,6 +58,16 @@ export function startServer(opts: StartServerOpts) {
   registry.add(jobDisableRoute(actionsDeps));
   registry.add(jobRunRoute(actionsDeps));
   registry.add(runStopRoute(actionsDeps));
+
+  const favoritesDeps = { db: opts.db };
+  registry.add(favoritesListRoute(favoritesDeps));
+  registry.add(favoriteSetRoute(favoritesDeps));
+  registry.add(favoriteUnsetRoute(favoritesDeps));
+
+  const dashboardDeps = { db: opts.db, registryPath: opts.registryPath };
+  registry.add(dashboardGlobalRoute(dashboardDeps));
+  registry.add(dashboardProjectRoute(dashboardDeps));
+  registry.add(jobStatsRoute(dashboardDeps));
 
   const contractRoutes = toBunRoutes(registry);
   const openapi = generateOpenApi(registry, { title: "claude-cron", version: "0.1.0" });

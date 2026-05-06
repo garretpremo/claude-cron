@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import type { RunRow } from "@claude-cron/core";
 import type {
   RunDTO, RunWithEventsDTO, EventDTO, PaginatedRunsDTO, RunStatus, EventType,
 } from "../dto";
@@ -16,17 +17,7 @@ export interface ListRunsOpts {
   coalesce?: RunStatus;
 }
 
-interface RunRow {
-  id: number; project: string; job: string;
-  fire_time: number; started_at: number; ended_at: number | null;
-  status: RunStatus;
-  exit_code: number | null; cost_usd: number | null; summary: string | null;
-  schedule: string; is_test: number; pid: number | null;
-  input_tokens: number | null; output_tokens: number | null;
-  cache_creation_tokens: number | null; cache_read_tokens: number | null;
-}
-
-function toRunDTO(r: RunRow): RunDTO {
+export function toRunDTO(r: RunRow): RunDTO {
   return {
     id: r.id, project: r.project, job: r.job,
     status: r.status,

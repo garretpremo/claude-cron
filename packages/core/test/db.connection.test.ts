@@ -19,7 +19,7 @@ test("openDb creates schema and sets WAL", () => {
   expect(String(journal.journal_mode).toLowerCase()).toBe("wal");
 
   const version = db.query("SELECT version FROM schema_version").get() as any;
-  expect(version.version).toBe(3);
+  expect(version.version).toBe(4);
   db.close();
 });
 
@@ -56,7 +56,7 @@ test("openDb migrates existing v1 DB to v3 (adds pid + token columns)", () => {
   expect(names).toContain("cache_read_tokens");
 
   const version = db.query("SELECT version FROM schema_version").get() as any;
-  expect(version.version).toBe(3);
+  expect(version.version).toBe(4);
   db.close();
 });
 
@@ -67,5 +67,23 @@ test("openDb on fresh DB creates current schema with pid + tokens", () => {
   const names = cols.map((c) => c.name);
   expect(names).toContain("pid");
   expect(names).toContain("output_tokens");
+  db.close();
+});
+
+test("openDb on fresh DB creates favorites table at v4", () => {
+  const dir = mkdtempSync(join(tmpdir(), "fav-"));
+  const db = openDb(join(dir, "h.db"));
+
+  const tables = db
+    .query("SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'")
+    .all() as { name: string }[];
+  expect(tables.length).toBe(1);
+
+  const cols = db.query("PRAGMA table_info(favorites)").all() as { name: string }[];
+  const names = cols.map((c) => c.name).sort();
+  expect(names).toEqual(["created_at", "project"]);
+
+  const version = db.query("SELECT version FROM schema_version").get() as any;
+  expect(version.version).toBe(4);
   db.close();
 });
