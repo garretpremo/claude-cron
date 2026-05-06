@@ -1,12 +1,22 @@
 import type { Database } from "bun:sqlite";
-import { projectsController } from "./controllers/projects";
-import { runsController } from "./controllers/runs";
 import { streamController } from "./controllers/stream";
-import { actionsController } from "./controllers/actions";
-import { statusController } from "./controllers/status";
 import { staticController } from "./controllers/static";
 import { toErrorResponse } from "./http/errors";
 import { Registry, toBunRoutes, generateOpenApi } from "./contract";
+import {
+  projectsListRoute,
+  projectGetRoute,
+  projectJobsListRoute,
+  projectJobGetRoute,
+} from "./routes/projects";
+import { runsListRoute, runGetRoute } from "./routes/runs";
+import { statusGetRoute } from "./routes/status";
+import {
+  jobEnableRoute,
+  jobDisableRoute,
+  jobRunRoute,
+  runStopRoute,
+} from "./routes/actions";
 
 export interface StartServerOpts {
   db: Database;
@@ -16,15 +26,29 @@ export interface StartServerOpts {
 }
 
 export function startServer(opts: StartServerOpts) {
-  const projects = projectsController(opts.db, opts.registryPath);
-  const runs     = runsController(opts.db);
-  const stream   = streamController(opts.db);
-  const actions  = actionsController(opts.db, opts.registryPath);
-  const status   = statusController(opts.db);
-  const statik   = staticController();
+  const stream = streamController(opts.db);
+  const statik = staticController();
 
   const registry = new Registry();
-  // (Phase 3 will populate the registry with route descriptors.)
+  const projectDeps = { db: opts.db, registryPath: opts.registryPath };
+  const runsDeps = { db: opts.db };
+  const actionsDeps = { db: opts.db, registryPath: opts.registryPath };
+
+  registry.add(projectsListRoute(projectDeps));
+  registry.add(projectGetRoute(projectDeps));
+  registry.add(projectJobsListRoute(projectDeps));
+  registry.add(projectJobGetRoute(projectDeps));
+
+  registry.add(runsListRoute(runsDeps));
+  registry.add(runGetRoute(runsDeps));
+
+  registry.add(statusGetRoute({ db: opts.db }));
+
+  registry.add(jobEnableRoute(actionsDeps));
+  registry.add(jobDisableRoute(actionsDeps));
+  registry.add(jobRunRoute(actionsDeps));
+  registry.add(runStopRoute(actionsDeps));
+
   const contractRoutes = toBunRoutes(registry);
   const openapi = generateOpenApi(registry, { title: "claude-cron", version: "0.1.0" });
 
@@ -38,30 +62,9 @@ export function startServer(opts: StartServerOpts) {
         return statik.asset(url.pathname.replace(/^\/assets\//, ""));
       },
 
-      "/api/projects": () => projects.list(),
-      "/api/projects/:project": (req) => projects.get(req.params.project),
-      "/api/projects/:project/jobs": (req) => projects.listJobs(req.params.project),
-      "/api/projects/:project/jobs/:job": (req) =>
-        projects.getJob(req.params.project, req.params.job),
-
-      "/api/runs": (req) => runs.list(new URL(req.url)),
-      "/api/runs/:id": (req) => runs.get(req.params.id),
+      // SSE — kept outside the contract registry. The contract adapter only
+      // handles JSON request/response; this endpoint is a long-lived stream.
       "/api/runs/:id/stream": (req) => stream.stream(req.params.id),
-
-      "/api/projects/:project/jobs/:job/enable": {
-        POST: (req) => actions.enable(req.params.project, req.params.job),
-      },
-      "/api/projects/:project/jobs/:job/disable": {
-        POST: (req) => actions.disable(req.params.project, req.params.job),
-      },
-      "/api/projects/:project/jobs/:job/run": {
-        POST: (req) => actions.run(req.params.project, req.params.job),
-      },
-      "/api/runs/:id/stop": {
-        POST: (req) => actions.stop(req.params.id),
-      },
-
-      "/api/status": () => status.get(),
 
       "/openapi.json": () => Response.json(openapi),
       "/docs": () => new Response(scalarHtml(), { headers: { "content-type": "text/html" } }),
