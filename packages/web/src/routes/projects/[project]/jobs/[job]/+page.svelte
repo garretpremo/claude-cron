@@ -187,7 +187,15 @@ const skippedCount = $derived(
   {/if}
 
   {#if loadError && !stats}
-    <div class="error">Couldn't load job: {loadError}</div>
+    <div class="error">
+      <p><strong>{project} / {job}</strong> isn't loadable.</p>
+      <p class="detail">{loadError}</p>
+      <p>
+        <a href="/projects/{project}" class="back-link">← Back to project</a>
+        <span class="sep">·</span>
+        <a href="/" class="back-link">Back to dashboard</a>
+      </p>
+    </div>
   {:else if !stats}
     <div class="loading">Loading…</div>
   {:else}
@@ -298,5 +306,12 @@ select {
   padding: var(--space-md);
   border-radius: 12px;
   margin-bottom: var(--space-md);
+}
+.error p { margin: 0 0 var(--space-sm); }
+.error p:last-child { margin-bottom: 0; }
+.error .detail { opacity: 0.75; font-size: var(--font-size-sm); }
+.back-link {
+  color: var(--md-sys-color-on-error-container);
+  font-weight: 500;
 }
 </style>

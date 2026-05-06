@@ -5,6 +5,7 @@ import {
   getTopProjectsByActivity,
   getTopJobsByActivity,
   getJobStatsSince,
+  readRegistry,
 } from "@claude-cron/core";
 import type {
   DashboardDTO,
@@ -41,13 +42,29 @@ function asCounts(c: ReturnType<typeof getCountsSince>): Counts {
   };
 }
 
-export function globalDashboard(db: Database, since: Since): DashboardDTO {
+export function globalDashboard(
+  db: Database,
+  registryPath: string,
+  since: Since,
+): DashboardDTO {
   const ts = sinceTimestamp(since);
+  // Drop activity rows for projects no longer in the registry — orphan run
+  // history is still queryable via /api/runs (the global firehose) but should
+  // not appear on the dashboard, where every panel is a click target into a
+  // page that requires the project to exist.
+  const registered = new Set(readRegistry(registryPath).projects.map((p) => p.name));
+  const top_projects = getTopProjectsByActivity(db, ts, TOP_LIMIT * 4)
+    .filter((p) => registered.has(p.project))
+    .slice(0, TOP_LIMIT);
+  const top_jobs = getTopJobsByActivity(db, ts, TOP_LIMIT * 4)
+    .filter((j) => registered.has(j.project))
+    .slice(0, TOP_LIMIT);
+  const running = getRunningRuns(db).filter((r) => registered.has(r.project));
   return {
     counts: asCounts(getCountsSince(db, ts)),
-    running: getRunningRuns(db).map(toRunDTO),
-    top_projects: getTopProjectsByActivity(db, ts, TOP_LIMIT),
-    top_jobs: getTopJobsByActivity(db, ts, TOP_LIMIT),
+    running: running.map(toRunDTO),
+    top_projects,
+    top_jobs,
   };
 }
 

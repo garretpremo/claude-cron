@@ -8,6 +8,10 @@ beforeEach(() => { s = startTestServer(); });
 afterEach(() => { s.close(); });
 
 test("GET /api/dashboard returns the four sections", async () => {
+  // Register projects so they survive the dashboard's "drop orphan" filter.
+  seedProject(s.registryPath, { name: "a", path: s.projectsDir });
+  seedProject(s.registryPath, { name: "b", path: s.projectsDir });
+  seedProject(s.registryPath, { name: "c", path: s.projectsDir });
   const now = Date.now();
   // Seed activity within the 24h window.
   seedRun(s.db, { project: "a", job: "j1", started_at: now - 1_000 }, { status: "success" });
@@ -38,6 +42,28 @@ test("GET /api/dashboard returns the four sections", async () => {
   expect(projectNames).toContain("a");
   expect(projectNames).toContain("b");
   expect(projectNames).not.toContain("c"); // skip-only
+});
+
+test("GET /api/dashboard drops orphan history (unregistered projects)", async () => {
+  // Only "kept" is registered; "orphan" has DB rows but no registry entry.
+  seedProject(s.registryPath, { name: "kept", path: s.projectsDir });
+  const now = Date.now();
+  seedRun(s.db, { project: "kept",   job: "j", started_at: now - 1_000 }, { status: "success" });
+  seedRun(s.db, { project: "orphan", job: "j", started_at: now - 2_000 }, { status: "success" });
+
+  const r = await fetch(`${s.url}/api/dashboard?since=24h`);
+  expect(r.status).toBe(200);
+  const body = await r.json() as {
+    counts: { success: number };
+    top_projects: Array<{ project: string }>;
+    top_jobs: Array<{ project: string }>;
+  };
+
+  // Counts include both (firehose-style — the global activity counters).
+  expect(body.counts.success).toBe(2);
+  // top_projects / top_jobs filtered to registry.
+  expect(body.top_projects.map((p) => p.project)).toEqual(["kept"]);
+  expect(body.top_jobs.map((j) => j.project)).toEqual(["kept"]);
 });
 
 test("GET /api/dashboard defaults since=24h", async () => {

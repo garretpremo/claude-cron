@@ -70,7 +70,13 @@ const skippedTotal = $derived(
   <h1>{project}</h1>
 
   {#if loadError && !data}
-    <div class="error">Couldn't load project: {loadError}</div>
+    <div class="error">
+      <p><strong>{project}</strong> isn't a registered project.</p>
+      <p class="detail">{loadError}</p>
+      <p>
+        <a href="/" class="back-link">← Back to dashboard</a>
+      </p>
+    </div>
   {:else if !data}
     <div class="loading">Loading…</div>
   {:else}
@@ -135,5 +141,12 @@ h2 {
   background: var(--md-sys-color-error-container);
   padding: var(--space-md);
   border-radius: 12px;
+}
+.error p { margin: 0 0 var(--space-sm); }
+.error p:last-child { margin-bottom: 0; }
+.error .detail { opacity: 0.75; font-size: var(--font-size-sm); }
+.back-link {
+  color: var(--md-sys-color-on-error-container);
+  font-weight: 500;
 }
 </style>

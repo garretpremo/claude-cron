@@ -26,7 +26,7 @@ export function dashboardGlobalRoute(deps: DashboardDeps) {
     method: "GET",
     input: z.object({ since: SinceSchema }),
     output: DashboardDTOSchema,
-    handler: ({ since }) => globalDashboard(deps.db, since),
+    handler: ({ since }) => globalDashboard(deps.db, deps.registryPath, since),
   });
 }
 
