@@ -9,7 +9,9 @@
   },
   "dependencies": {
     "@claude-cron/core": "workspace:*",
+    "@scalar/api-reference": "^1.55.3",
     "yaml": "^2.5.0",
-    "zod": "^3.23.0"
+    "zod": "^3.23.0",
+    "zod-to-json-schema": "^3.25.2"
   }
 }

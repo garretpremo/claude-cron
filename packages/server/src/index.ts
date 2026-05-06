@@ -6,6 +6,7 @@ import { actionsController } from "./controllers/actions";
 import { statusController } from "./controllers/status";
 import { staticController } from "./controllers/static";
 import { toErrorResponse } from "./http/errors";
+import { Registry, toBunRoutes, generateOpenApi } from "./contract";
 
 export interface StartServerOpts {
   db: Database;
@@ -21,6 +22,11 @@ export function startServer(opts: StartServerOpts) {
   const actions  = actionsController(opts.db, opts.registryPath);
   const status   = statusController(opts.db);
   const statik   = staticController();
+
+  const registry = new Registry();
+  // (Phase 3 will populate the registry with route descriptors.)
+  const contractRoutes = toBunRoutes(registry);
+  const openapi = generateOpenApi(registry, { title: "claude-cron", version: "0.1.0" });
 
   const server = Bun.serve({
     port: opts.port,
@@ -56,6 +62,10 @@ export function startServer(opts: StartServerOpts) {
       },
 
       "/api/status": () => status.get(),
+
+      "/openapi.json": () => Response.json(openapi),
+      "/docs": () => new Response(scalarHtml(), { headers: { "content-type": "text/html" } }),
+      ...contractRoutes,
     },
     fetch(_req) {
       return new Response("Not found", { status: 404 });
@@ -73,4 +83,10 @@ export function startServer(opts: StartServerOpts) {
   process.once("SIGTERM", () => { shutdown(); process.exit(0); });
 
   return { server, shutdown };
+}
+
+function scalarHtml(): string {
+  return `<!doctype html><html><head><title>claude-cron API</title></head>
+<body><script id="api-reference" data-url="/openapi.json"></script>
+<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script></body></html>`;
 }
