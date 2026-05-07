@@ -66,6 +66,21 @@ Job definitions are colocated with the project they automate at `<project>/.clau
 - `src/lib/components/RunPopover.svelte` — deep-linkable run dialog (`?run=<id>`), used from both Activity and the job-detail page.
 - `e2e/` + `playwright.config.ts` — smoke tests against `vite preview`. Without a fixture-seeded API server they cover the SvelteKit shell + client-side routing only; tests that need real data should boot `claude-cron serve` separately and seed via `e2e/fixtures.ts`.
 
+### M3E component primitives — pick the interactive variant
+
+The `@m3e/*` packages ship multiple chip variants. **Most chip families have a "display only" element and a separate interactive element. Picking the wrong one silently strips hover, ripple, click events, and selected styling.** The package's `dist/html-custom-data.json` is authoritative — read the element description before wrapping.
+
+| When you want… | Use | Don't use |
+|---|---|---|
+| A multi-select toggle (sidebar facet) | `<m3e-filter-chip>` (wrapper: `lib/m3e/FilterChip.svelte`) | `<m3e-chip>` — documented as **"non-interactive, used to convey small pieces of information"** |
+| A one-shot click action chip | `<m3e-assist-chip>` | `<m3e-chip>` |
+| A removable input/tag chip | `<m3e-input-chip>` | `<m3e-chip>` |
+| A status pill in a row (read-only) | `<m3e-chip>` (wrapper: `lib/m3e/Chip.svelte`) | the interactive variants — they carry interaction affordances you don't want |
+
+**Why:** caught us in the Activity-page filter sidebar — chips visually rendered but had no hover effect, no `cursor: pointer`, no ripple, no clicks reaching the handler. Root cause was the wrapper rendering `<m3e-chip>` (display-only) where a `<m3e-filter-chip>` was needed.
+
+**How to apply:** When adding any new clickable/selectable surface, check the element description in the package's `html-custom-data.json` first. The interactive elements list `Events: click / change / input` in their description; the display-only ones don't. The same pattern applies across other M3E families (e.g., `m3e-card` is layout-only — for a clickable card use `<m3e-card>` plus your own button semantics, or check whether the package ships a clickable variant).
+
 ### Auth modes (subscription vs api_key)
 
 - `subscription` (default) reuses the user's OAuth keyring session. The cron prelude must export `DBUS_SESSION_BUS_ADDRESS` + `XDG_RUNTIME_DIR` for this to work from cron — `init` writes those automatically. `max_budget_usd` is inert in this mode.
