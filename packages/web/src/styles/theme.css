@@ -89,7 +89,7 @@ body {
   font-size: var(--font-size-body-large);
   line-height: var(--line-height-loose);
   color: var(--md-sys-color-on-surface-variant);
-  max-width: 650px;
+  max-width: 900px;
 }
 .page-content code {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
