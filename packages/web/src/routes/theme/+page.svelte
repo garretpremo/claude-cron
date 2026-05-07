@@ -23,13 +23,12 @@ const SCHEMES: { value: ThemeScheme; label: string }[] = [
 <section>
   <h1>Theme</h1>
   <p class="body-large">
-    Pick a seed color and scheme. Choices apply globally and persist on this
-    device<button
+    Pick a seed color and scheme. Choices apply globally and persist on this <span class="no-break">device<button
       id="theme-storage-trigger"
       type="button"
       class="info-trigger"
       aria-label="How is this stored?"
-    ><m3e-icon name="info"></m3e-icon></button>.
+    ><m3e-icon name="info"></m3e-icon></button>.</span>
     <m3e-rich-tooltip for="theme-storage-trigger">
       Stored in <code>localStorage</code> under
       <code>claude-cron:theme</code> and <code>claude-cron:scheme</code>.
@@ -130,6 +129,9 @@ h3 {
   gap: var(--space-md);
 }
 
+.no-break {
+  white-space: nowrap;
+}
 .info-trigger {
   appearance: none;
   background: transparent;
