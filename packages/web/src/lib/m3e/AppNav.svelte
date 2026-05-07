@@ -10,7 +10,7 @@ type NavItem = { href: string; label: string; icon: string };
 const items: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "dashboard" },
   { href: "/activity", label: "Activity", icon: "history" },
-  { href: "/settings", label: "Settings", icon: "settings" },
+  { href: "/theme", label: "Theme", icon: "palette" },
 ];
 
 // `bind:this` on an M3E custom element infers the element class type which

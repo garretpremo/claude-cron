@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
 
-// Theme persistence: change scheme on /settings and confirm it survives a
+// Theme persistence: change scheme on /theme and confirm it survives a
 // reload via localStorage at "claude-cron:scheme".
 test("theme scheme persists across reload", async ({ page }) => {
-  await page.goto("/settings");
-  await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
+  await page.goto("/theme");
+  await expect(page.getByRole("heading", { name: "Theme", level: 1 })).toBeVisible();
 
   // Click "Dark"
   await page.getByRole("button", { name: "Dark", exact: true }).click();

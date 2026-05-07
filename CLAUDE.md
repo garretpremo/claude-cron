@@ -59,7 +59,7 @@ Job definitions are colocated with the project they automate at `<project>/.clau
 
 #### `packages/web/`
 
-- `src/routes/` — SvelteKit pages: `/` Dashboard, `/activity`, `/projects/[project]`, `/projects/[project]/jobs/[job]`, `/settings`. Adapter-static + SPA fallback (`fallback: "index.html"`) so client-side routing works on a static host.
+- `src/routes/` — SvelteKit pages: `/` Dashboard, `/activity`, `/projects/[project]`, `/projects/[project]/jobs/[job]`, `/theme`. Adapter-static + SPA fallback (`fallback: "index.html"`) so client-side routing works on a static host.
 - `src/lib/api.ts` — typed `apiClient` whose request/response shapes come from `@claude-cron/server` contract zod schemas. New routes added to the registry are picked up by re-exporting them.
 - `src/lib/stores/run-stream.ts` — per-run SSE store. Mounts `/api/runs/:id/stream`, parses events, exposes a Svelte 5 rune for the UI.
 - `src/lib/stores/theme.svelte.ts` — M3E theme rune. Persists `claude-cron:theme` (preset hex) and `claude-cron:scheme` (`light` | `dark`) in `localStorage`.
