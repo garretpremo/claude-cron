@@ -51,6 +51,7 @@
         "@m3e/nav-menu": "^1.3.1",
         "@m3e/shape": "^1.3.1",
         "@m3e/theme": "^1.3.1",
+        "@m3e/tooltip": "^1.3.1",
       },
       "devDependencies": {
         "@playwright/test": "^1.59.1",
@@ -234,6 +235,8 @@
     "@m3e/shape": ["@m3e/shape@1.3.1", "", { "peerDependencies": { "@m3e/core": "^1.3.0", "lit": "^3.3.0" } }, "sha512-VP3zGGxy8xfye9bHwi71bfDadW8l3LlsGyT/ZufDumUhynd8lr2nJ+u4QcrsQVvFy0V5WGnvImX7YbKvvFy6vA=="],
 
     "@m3e/theme": ["@m3e/theme@1.3.1", "", { "dependencies": { "@material/material-color-utilities": "^0.3.0" }, "peerDependencies": { "@m3e/core": "^1.3.0", "lit": "^3.3.0" } }, "sha512-RP4aUrN7DZoQui4DXRcMuqxA8ifMDsN8NYXicUzm2+KoENQqsx3b9gXyfQyctFzZCVZ5LDJ+Qzx54d5MIwE06w=="],
+
+    "@m3e/tooltip": ["@m3e/tooltip@1.3.1", "", { "peerDependencies": { "@m3e/core": "^1.3.0", "lit": "^3.3.0" } }, "sha512-deRS0/2y8t7Kbzp8WFNsiL2lb5s3mLeOFwL1DSm7rVJArkhlSjPZiHqkYYB5mECVgwG/ZMOSx+Kb4vzFe2vzDw=="],
 
     "@marijn/find-cluster-break": ["@marijn/find-cluster-break@1.0.2", "", {}, "sha512-l0h88YhZFyKdXIFNfSWpyjStDjGHwZ/U7iobcK1cQQD8sejsONdQtTVU+1wVN1PBw40PiiHB1vA5S7VTfQiP9g=="],
 

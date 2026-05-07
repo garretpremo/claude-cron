@@ -9,7 +9,10 @@ import {
   setScheme,
   themeState,
 } from "$lib/stores/theme.svelte";
-if (browser) void import("@m3e/icon");
+if (browser) {
+  void import("@m3e/icon");
+  void import("@m3e/tooltip");
+}
 
 const SCHEMES: { value: ThemeScheme; label: string }[] = [
   { value: "light", label: "Light" },
@@ -22,20 +25,18 @@ const SCHEMES: { value: ThemeScheme; label: string }[] = [
   <p class="body-large">
     Pick a seed color and scheme. Choices apply globally and persist on this
     device.<!--
-    --><span class="info-tip">
-      <button
-        type="button"
-        class="info-trigger"
-        aria-describedby="theme-storage-tip"
-        aria-label="How is this stored?"
-      >
-        <m3e-icon name="info"></m3e-icon>
-      </button>
-      <span id="theme-storage-tip" role="tooltip" class="info-tooltip">
-        Stored in <code>localStorage</code> under
-        <code>claude-cron:theme</code> and <code>claude-cron:scheme</code>.
-      </span>
-    </span>
+    --><button
+      id="theme-storage-trigger"
+      type="button"
+      class="info-trigger"
+      aria-label="How is this stored?"
+    >
+      <m3e-icon name="info"></m3e-icon>
+    </button>
+    <m3e-rich-tooltip for="theme-storage-trigger">
+      Stored in <code>localStorage</code> under
+      <code>claude-cron:theme</code> and <code>claude-cron:scheme</code>.
+    </m3e-rich-tooltip>
   </p>
 
   <h3>Presets</h3>
@@ -132,19 +133,12 @@ h3 {
   gap: var(--space-md);
 }
 
-.info-tip {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  margin-left: 0.35em;
-  vertical-align: -0.15em;
-}
 .info-trigger {
   appearance: none;
   background: transparent;
   border: none;
   padding: 0;
-  margin: 0;
+  margin: 0 0 0 0.35em;
   color: var(--md-sys-color-on-surface-variant);
   cursor: help;
   opacity: 0.6;
@@ -154,6 +148,7 @@ h3 {
   border-radius: 50%;
   width: 20px;
   height: 20px;
+  vertical-align: -0.15em;
   --m3e-icon-size: 16px;
   transition: opacity 150ms ease, background 150ms ease;
 }
@@ -163,36 +158,11 @@ h3 {
   background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
   outline: none;
 }
-.info-tooltip {
-  position: absolute;
-  left: 50%;
-  top: calc(100% + 6px);
-  transform: translateX(-50%);
-  min-width: 240px;
-  max-width: 360px;
-  padding: 8px 12px;
-  background: var(--md-sys-color-inverse-surface);
-  color: var(--md-sys-color-inverse-on-surface);
-  border-radius: 8px;
-  font-size: var(--font-size-xs);
-  line-height: 1.45;
-  text-align: left;
-  white-space: normal;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 150ms ease;
-  z-index: 10;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
-}
-.info-tooltip code {
+m3e-rich-tooltip code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.95em;
   background: color-mix(in srgb, currentColor 12%, transparent);
   padding: 1px 4px;
   border-radius: 4px;
-}
-.info-tip:hover .info-tooltip,
-.info-tip:focus-within .info-tooltip {
-  opacity: 1;
 }
 </style>
