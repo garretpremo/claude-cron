@@ -20,7 +20,18 @@ let { selected, disabled, onclick, children }: Props = $props();
 -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<m3e-filter-chip {selected} {disabled} {onclick}>{@render children?.()}</m3e-filter-chip>
+<!--
+  Pass `selected` as `true` or `null` (not `false`). Svelte serializes
+  Svelte-prop boolean false as the string attribute `selected="false"`,
+  which on a Web Component using `hasAttribute("selected")` registers as
+  truthy — visually inverting selection. Setting `null` makes Svelte
+  omit the attribute entirely, which is the correct unselected state.
+-->
+<m3e-filter-chip
+  selected={selected ? true : null}
+  disabled={disabled ? true : null}
+  {onclick}
+>{@render children?.()}</m3e-filter-chip>
 
 <style>
 m3e-filter-chip {
