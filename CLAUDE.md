@@ -81,6 +81,8 @@ The `@m3e/*` packages ship multiple chip variants. **Most chip families have a "
 
 **How to apply:** When adding any new clickable/selectable surface, check the element description in the package's `html-custom-data.json` first. The interactive elements list `Events: click / change / input` in their description; the display-only ones don't. The same pattern applies across other M3E families (e.g., `m3e-card` is layout-only — for a clickable card use `<m3e-card>` plus your own button semantics, or check whether the package ships a clickable variant).
 
+**Before hand-rolling a primitive, check the `@m3e/*` registry.** The local `node_modules/@m3e/` only has what we've explicitly installed; the published family is much larger (`@m3e/tooltip`, `@m3e/dialog`, `@m3e/snackbar`, `@m3e/select`, `@m3e/checkbox`, `@m3e/switch`, `@m3e/fab`, `@m3e/form-field`, etc.). `npm view @m3e/<name>` confirms a package exists; install with `bun add --cwd packages/web @m3e/<name>`. Caught this on the Theme page tooltip — wrote ~50 lines of custom CSS for hover/positioning/inverse-surface chrome before realizing `@m3e/tooltip` ships the same thing with proper motion, focus management, and touch-gesture handling. The lesson generalizes: if you're styling something that looks like a known M3 component, the registry probably has it.
+
 ### Auth modes (subscription vs api_key)
 
 - `subscription` (default) reuses the user's OAuth keyring session. The cron prelude must export `DBUS_SESSION_BUS_ADDRESS` + `XDG_RUNTIME_DIR` for this to work from cron — `init` writes those automatically. `max_budget_usd` is inert in this mode.
