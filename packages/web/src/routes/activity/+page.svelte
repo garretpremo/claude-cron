@@ -7,7 +7,7 @@ import { api, type RunDTO, type ProjectDTO } from "$lib/api";
 import RunsTable from "$lib/components/RunsTable.svelte";
 import RunPopover from "$lib/components/RunPopover.svelte";
 import Button from "$lib/m3e/Button.svelte";
-import Chip from "$lib/m3e/Chip.svelte";
+import Chip from "$lib/m3e/FilterChip.svelte";
 import Icon from "$lib/m3e/Icon.svelte";
 
 // ---------- Filter shape & defaults ----------
