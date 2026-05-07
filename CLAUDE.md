@@ -83,6 +83,18 @@ The `@m3e/*` packages ship multiple chip variants. **Most chip families have a "
 
 **Before hand-rolling a primitive, check the `@m3e/*` registry.** The local `node_modules/@m3e/` only has what we've explicitly installed; the published family is much larger (`@m3e/tooltip`, `@m3e/dialog`, `@m3e/snackbar`, `@m3e/select`, `@m3e/checkbox`, `@m3e/switch`, `@m3e/fab`, `@m3e/form-field`, etc.). `npm view @m3e/<name>` confirms a package exists; install with `bun add --cwd packages/web @m3e/<name>`. Caught this on the Theme page tooltip — wrote ~50 lines of custom CSS for hover/positioning/inverse-surface chrome before realizing `@m3e/tooltip` ships the same thing with proper motion, focus management, and touch-gesture handling. The lesson generalizes: if you're styling something that looks like a known M3 component, the registry probably has it.
 
+**Boolean attributes on Web Components: pass `null`, never `false`.** Svelte 5 serializes a Svelte-prop boolean `false` as the string attribute `selected="false"` (or `disabled="false"`, etc.) on custom elements. Web Components — including every `@m3e/*` interactive primitive — read those attributes via `hasAttribute()`, which treats *any* presence as truthy. Result: every `false` prop renders as if it were `true`, and every `true` prop renders correctly only by accident.
+
+```svelte
+<!-- ❌ BUG: selected="false" → still treated as selected -->
+<m3e-filter-chip {selected}>{label}</m3e-filter-chip>
+
+<!-- ✅ Coerce falsy → null so Svelte omits the attribute entirely -->
+<m3e-filter-chip selected={selected ? true : null}>{label}</m3e-filter-chip>
+```
+
+**How to apply:** Any time a Svelte component wraps an `<m3e-*>` (or any Web Component) and forwards a boolean prop, coerce falsy values to `null`. The same pattern bit `lib/m3e/AppNav.svelte`'s reactive `selected={...}` (worked around there by imperatively setting the property after element upgrade) and `lib/m3e/FilterChip.svelte` (fixed by the `null`-coercion above). When in doubt, `bind:this` on the element and set the property imperatively — properties are real booleans; attributes are strings.
+
 ### Auth modes (subscription vs api_key)
 
 - `subscription` (default) reuses the user's OAuth keyring session. The cron prelude must export `DBUS_SESSION_BUS_ADDRESS` + `XDG_RUNTIME_DIR` for this to work from cron — `init` writes those automatically. `max_budget_usd` is inert in this mode.
