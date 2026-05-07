@@ -1,0 +1,5 @@
+[test]
+# Playwright e2e specs live in packages/web/e2e/ and use @playwright/test,
+# not bun:test. Exclude them so `bun test` only runs the unit/integration
+# suites under packages/*/test/.
+pathIgnorePatterns = ["**/e2e/**"]

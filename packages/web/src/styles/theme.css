@@ -1,0 +1,110 @@
+/* Spacing scale */
+:root {
+  --space-xxs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.25rem;
+  --space-xl: 1.5rem;
+  --space-2xl: 2rem;
+  --space-3xl: 3rem;
+  --space-4xl: 5rem;
+}
+
+/* Typography */
+:root {
+  --font-family-base: system-ui, -apple-system, sans-serif;
+
+  --font-size-xs: 0.8125rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-body-large: 1.0625rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 2rem;
+  --font-size-4xl: 3.5rem;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+
+  --line-height-tight: 1.15;
+  --line-height-base: 1.6;
+  --line-height-loose: 1.7;
+
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-wide: 0.04em;
+}
+
+/* Layout */
+:root {
+  --container-max-width: 1200px;
+  --container-padding: var(--space-xl);
+  --container-padding-mobile: var(--space-md);
+}
+
+/* Reset + base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+}
+body {
+  font-family: var(--font-family-base);
+  background: var(--md-sys-color-background, #fdf8fd);
+  color: var(--md-sys-color-on-background, var(--md-sys-color-on-surface));
+  line-height: var(--line-height-base);
+}
+
+/* Page typography helpers */
+.page-content h1 {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--md-sys-color-on-surface);
+}
+.page-content h2 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--md-sys-color-on-surface);
+}
+.page-content h3 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-medium);
+  color: var(--md-sys-color-on-surface);
+  margin-top: var(--space-lg);
+}
+.page-content p {
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-base);
+  color: var(--md-sys-color-on-surface-variant);
+}
+.page-content .body-large {
+  font-size: var(--font-size-body-large);
+  line-height: var(--line-height-loose);
+  color: var(--md-sys-color-on-surface-variant);
+  max-width: 900px;
+}
+.page-content code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+main {
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: 0 var(--container-padding);
+}
+
+@media (max-width: 480px) {
+  :root {
+    --container-padding: var(--container-padding-mobile);
+  }
+}

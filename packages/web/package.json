@@ -1,0 +1,38 @@
+{
+  "name": "@claude-cron/web",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@claude-cron/server": "workspace:*",
+    "@m3e/app-bar": "^1.3.1",
+    "@m3e/button": "^1.3.1",
+    "@m3e/card": "^1.3.1",
+    "@m3e/chips": "^1.3.1",
+    "@m3e/divider": "^1.3.1",
+    "@m3e/drawer-container": "^1.3.1",
+    "@m3e/icon": "^1.3.1",
+    "@m3e/icon-button": "^1.3.1",
+    "@m3e/nav-menu": "^1.3.1",
+    "@m3e/shape": "^1.3.1",
+    "@m3e/theme": "^1.3.1",
+    "@m3e/tooltip": "^1.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@sveltejs/adapter-static": "^3.0.0",
+    "@sveltejs/kit": "^2.5.27",
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0"
+  }
+}

@@ -1,6 +1,12 @@
 node_modules/
 dist/
+.svelte-kit/
 *.db
 *.db-*
 .DS_Store
 .superpowers/
+
+# playwright
+test-results/
+playwright-report/
+.playwright/

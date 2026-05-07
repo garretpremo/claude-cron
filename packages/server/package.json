@@ -1,0 +1,22 @@
+{
+  "name": "@claude-cron/server",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/contract/index.ts",
+    "./contract/schemas": "./src/contract/schemas.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "dev": "bun --watch src/dev-entry.ts"
+  },
+  "dependencies": {
+    "@claude-cron/core": "workspace:*",
+    "@scalar/api-reference": "^1.55.3",
+    "yaml": "^2.5.0",
+    "zod": "^3.23.0",
+    "zod-to-json-schema": "^3.25.2"
+  }
+}
