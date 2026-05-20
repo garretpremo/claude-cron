@@ -11,6 +11,33 @@ import { cmdLogs } from "./commands/logs";
 import { cmdStatus } from "./commands/status";
 import { cmdServe } from "./commands/serve";
 
+export function parseInputFlags(argv: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--input") {
+      const next = argv[++i];
+      if (!next || !next.includes("=")) {
+        throw new Error(`--input expects K=V (got '${next}')`);
+      }
+      const idx = next.indexOf("=");
+      out[next.slice(0, idx)] = next.slice(idx + 1);
+    } else if (argv[i] === "--input-json") {
+      const next = argv[++i];
+      let parsed: unknown;
+      try { parsed = JSON.parse(next ?? ""); }
+      catch { throw new Error(`--input-json: invalid JSON`); }
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        throw new Error(`--input-json: must be a JSON object`);
+      }
+      for (const [k, v] of Object.entries(parsed)) {
+        if (typeof v !== "string") throw new Error(`--input-json: value for '${k}' must be a string`);
+        out[k] = v;
+      }
+    }
+  }
+  return out;
+}
+
 const program = new Command();
 program.name("claude-cron").version("0.1.0");
 
@@ -42,8 +69,21 @@ program.command("list")
 program.command("run <target>")
   .description("Execute a job. target = <project>/<job> or bare <job>")
   .option("--force", "Skip preflight")
+  .option("--input <kv>", "Per-trigger input as K=V (repeatable)", (v, prev: string[]) => [...prev, v], [] as string[])
+  .option("--input-json <json>", "Per-trigger inputs as a JSON object")
   .action(async (target, o) => {
-    const code = await cmdRun({ target, force: o.force });
+    let inputs: Record<string, string> | undefined;
+    try {
+      const argv: string[] = [];
+      for (const kv of (o.input as string[] ?? [])) argv.push("--input", kv);
+      if (o.inputJson) argv.push("--input-json", o.inputJson);
+      const parsed = parseInputFlags(argv);
+      if (Object.keys(parsed).length > 0) inputs = parsed;
+    } catch (e) {
+      console.error((e as Error).message);
+      process.exit(2);
+    }
+    const code = await cmdRun({ target, force: o.force, inputs });
     process.exit(code);
   });
 
@@ -51,8 +91,21 @@ program.command("test <target>")
   .description("Execute a job in test mode (marks run as is_test)")
   .option("--skip-preflight")
   .option("--dry-run")
+  .option("--input <kv>", "Per-trigger input as K=V (repeatable)", (v, prev: string[]) => [...prev, v], [] as string[])
+  .option("--input-json <json>", "Per-trigger inputs as a JSON object")
   .action(async (target, o) => {
-    const code = await cmdTest({ target, force: o.skipPreflight });
+    let inputs: Record<string, string> | undefined;
+    try {
+      const argv: string[] = [];
+      for (const kv of (o.input as string[] ?? [])) argv.push("--input", kv);
+      if (o.inputJson) argv.push("--input-json", o.inputJson);
+      const parsed = parseInputFlags(argv);
+      if (Object.keys(parsed).length > 0) inputs = parsed;
+    } catch (e) {
+      console.error((e as Error).message);
+      process.exit(2);
+    }
+    const code = await cmdTest({ target, force: o.skipPreflight, inputs });
     process.exit(code);
   });
 
@@ -85,7 +138,9 @@ program.command("serve")
   .option("--allow-public", "Allow non-loopback bind (dashboard has NO auth)")
   .action(async (o) => { await cmdServe({ port: o.port, host: o.host, allowPublic: o.allowPublic }); });
 
-program.parseAsync().catch((e) => {
-  console.error(e instanceof Error ? e.message : String(e));
-  process.exit(1);
-});
+if (import.meta.main) {
+  program.parseAsync().catch((e) => {
+    console.error(e instanceof Error ? e.message : String(e));
+    process.exit(1);
+  });
+}
