@@ -196,7 +196,7 @@ logging: { retention_days: 30 }
   expect(row.pid).toBeGreaterThan(0);
 });
 
-test("inputs map injects CC_INPUT_* into prompt_cmd and claude env", async () => {
+test("inputs map flows into prompt_cmd subprocess env", async () => {
   const { dir, db } = fresh();
   const mcDir = mockClaudeDir();
 
@@ -205,8 +205,6 @@ test("inputs map injects CC_INPUT_* into prompt_cmd and claude env", async () =>
   writeFileSync(jobPath, `
 name: j
 schedule: "*/5 * * * *"
-inputs:
-  enabled: true
 claude:
   prompt_cmd: 'echo "ticker=$CC_INPUT_TICKER"'
   allowed_tools: []

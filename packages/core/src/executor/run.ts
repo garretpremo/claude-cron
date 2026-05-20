@@ -21,7 +21,11 @@ export interface ExecuteRunInput {
   extraPath?: string;   // prepended to PATH (lets tests point to mock claude)
   isTest: boolean;
   /** Per-trigger input values. Each key K is injected as CC_INPUT_<K> into
-   *  both the prompt_cmd subprocess and the claude subprocess env. */
+   *  both the prompt_cmd subprocess and the claude subprocess env.
+   *  Callers are responsible for validating the map with `validateInputs`
+   *  (`src/job/inputs.ts`) before reaching here — `executeRun` does NOT
+   *  re-validate. The CLI and HTTP entry points perform validation at the
+   *  boundary. */
   inputs?: Record<string, string>;
   /** Called exactly once, right after the run row is inserted (whatever the
    *  eventual terminal status). Lets callers (e.g. the Run-now API) return
