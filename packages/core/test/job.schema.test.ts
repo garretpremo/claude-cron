@@ -43,4 +43,20 @@ describe("JobSchema", () => {
       JobSchema.parse({ ...minimal, timeout: "forever" })
     ).toThrow();
   });
+
+  test("omitted inputs defaults to { enabled: false }", () => {
+    const parsed = JobSchema.parse(minimal);
+    expect(parsed.inputs).toEqual({ enabled: false });
+  });
+
+  test("inputs.enabled: true is honored", () => {
+    const parsed = JobSchema.parse({ ...minimal, inputs: { enabled: true } });
+    expect(parsed.inputs.enabled).toBe(true);
+  });
+
+  test("rejects unknown fields (strict mode)", () => {
+    expect(() =>
+      JobSchema.parse({ ...minimal, inputs: { enabled: true, bogus: 1 } })
+    ).toThrow();
+  });
 });
