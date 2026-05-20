@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import YAML from "yaml";
-import { readRegistry } from "@claude-cron/core";
+import { readRegistry, validateInputs } from "@claude-cron/core";
 import { jobsDir, lockPath } from "@claude-cron/core";
 import { getJob } from "./job-service";
 import { HttpError } from "../http/errors";
@@ -116,8 +116,9 @@ export function stopRun(db: Database, runId: number, opts: StopRunOpts = {}): Ru
  * The run continues in the same process; its events stream into the DB and
  * SSE subscribers see them live.
  */
-export function runJobNow(
+export async function runJobNow(
   db: Database, registryPath: string, project: string, jobName: string,
+  inputs?: Record<string, string>,
 ): Promise<{ run_id: number }> {
   const reg = readRegistry(registryPath);
   const p = reg.projects.find((x) => x.name === project);
@@ -127,6 +128,23 @@ export function runJobNow(
     throw new HttpError(404, `Job ${project}/${jobName} not found`, "NOT_FOUND");
   }
 
+  if (inputs && Object.keys(inputs).length > 0) {
+    let parsed: any;
+    try {
+      parsed = YAML.parse(readFileSync(jobFile, "utf8"));
+    } catch (e: any) {
+      throw new HttpError(500, `YAML parse error: ${e.message}`, "YAML_INVALID");
+    }
+    if (!parsed?.inputs?.enabled) {
+      throw new HttpError(400, `job '${project}/${jobName}' does not accept inputs`, "INPUTS_NOT_ENABLED");
+    }
+    try {
+      validateInputs(inputs);
+    } catch (e) {
+      throw new HttpError(400, e instanceof Error ? e.message : String(e), "INVALID_INPUTS");
+    }
+  }
+
   return new Promise<{ run_id: number }>((resolve, reject) => {
     let settled = false;
     executeRun({
@@ -134,6 +152,7 @@ export function runJobNow(
       jobFile,
       lockPath: lockPath(project, jobName),
       isTest: false,
+      inputs,
       onStart: (id) => {
         if (settled) return;
         settled = true;

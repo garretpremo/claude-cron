@@ -28,6 +28,7 @@ export {
 export * as queries from "./db/queries";
 
 // Jobs
+export { validateInputs } from "./job/inputs";
 export { JobSchema, type Job } from "./job/schema";
 export {
   loadJobsFromDir,
