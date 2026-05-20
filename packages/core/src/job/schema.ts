@@ -53,6 +53,12 @@ export const JobSchema = z.object({
   auth: z.enum(["subscription", "api_key"]).default("subscription"),
   preflight: PreflightSchema.nullable().default(null),
   claude: ClaudeSchema,
+  inputs: z
+    .object({
+      enabled: z.boolean().default(false),
+    })
+    .strict()
+    .default({ enabled: false }),
   cwd: z.string().default("."),
   timeout: Duration.default("10m"),
   logging: LoggingSchema.default({}),
