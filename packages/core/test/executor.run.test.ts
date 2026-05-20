@@ -205,6 +205,8 @@ test("inputs map flows into prompt_cmd subprocess env", async () => {
   writeFileSync(jobPath, `
 name: j
 schedule: "*/5 * * * *"
+inputs:
+  enabled: true
 claude:
   prompt_cmd: 'echo "ticker=$CC_INPUT_TICKER"'
   allowed_tools: []

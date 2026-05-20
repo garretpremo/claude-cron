@@ -63,6 +63,22 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
     return { terminalStatus: "config_error", runId: id, exitCode: 2 };
   }
 
+  // 1b. Gate: inputs supplied but job does not accept them
+  if (i.inputs && Object.keys(i.inputs).length > 0 && !job.inputs.enabled) {
+    const id = insertRun(i.db, {
+      project: i.project, job: job.name, fire_time: now,
+      started_at: now, schedule: job.schedule, is_test: i.isTest,
+      inputs_json: JSON.stringify(i.inputs),
+    });
+    i.onStart?.(id);
+    finishRun(i.db, id, {
+      status: "config_error", exit_code: null, cost_usd: null,
+      summary: `job '${i.project}/${job.name}' does not accept inputs (set inputs.enabled: true in YAML)`,
+      ended_at: Date.now(),
+    });
+    return { terminalStatus: "config_error", runId: id, exitCode: 2 };
+  }
+
   const jobTimeoutMs = parseDuration(job.timeout);
   const staleMs = Math.max(2 * jobTimeoutMs, ABANDONED_FLOOR_MS);
 
@@ -88,6 +104,7 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
   const runId = insertRun(i.db, {
     project: i.project, job: job.name, fire_time: now,
     started_at: Date.now(), schedule: job.schedule, is_test: i.isTest,
+    inputs_json: i.inputs && Object.keys(i.inputs).length > 0 ? JSON.stringify(i.inputs) : null,
   });
   i.onStart?.(runId);
 
