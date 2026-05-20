@@ -107,6 +107,7 @@ export function stopRun(db: Database, runId: number, opts: StopRunOpts = {}): Ru
     output_tokens: row.output_tokens ?? null,
     cache_creation_tokens: row.cache_creation_tokens ?? null,
     cache_read_tokens: row.cache_read_tokens ?? null,
+    inputs_json: row.inputs_json ?? null,
   };
 }
 
