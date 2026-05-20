@@ -20,6 +20,9 @@ export interface ExecuteRunInput {
   lockPath: string;
   extraPath?: string;   // prepended to PATH (lets tests point to mock claude)
   isTest: boolean;
+  /** Per-trigger input values. Each key K is injected as CC_INPUT_<K> into
+   *  both the prompt_cmd subprocess and the claude subprocess env. */
+  inputs?: Record<string, string>;
   /** Called exactly once, right after the run row is inserted (whatever the
    *  eventual terminal status). Lets callers (e.g. the Run-now API) return
    *  the run_id before the run completes. */
@@ -97,6 +100,11 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
   const cwdAbs = resolve(projectRoot, job.cwd);
   const env: Record<string, string> = { ...process.env } as any;
   if (i.extraPath) env.PATH = `${i.extraPath}:${env.PATH ?? ""}`;
+  if (i.inputs) {
+    for (const [k, v] of Object.entries(i.inputs)) {
+      env[`CC_INPUT_${k}`] = v;
+    }
+  }
 
   try {
     // 5. Preflight
