@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
-import { PROJECTS_TOML, DB_PATH, GLOBAL_DIR, SECRETS_ENV, LOCKS_DIR, lockPath, jobsDir } from "../util/paths";
+import { PROJECTS_TOML, DB_PATH, GLOBAL_DIR, SECRETS_ENV, LOCKS_DIR, jobsDir } from "../util/paths";
 import { readRegistry, findByPath, findByName } from "../job/registry";
 import { openDb } from "../db/connection";
 import { executeRun } from "../executor/run";
