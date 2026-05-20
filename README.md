@@ -89,6 +89,58 @@ logging:
   retention_days: 30
 ```
 
+### Per-trigger inputs
+
+Some jobs need a value per trigger (a ticker, an issue number, a date). Opt
+in by adding `inputs.enabled: true` to the YAML, then read the values in
+`prompt_cmd` from `$CC_INPUT_<KEY>` env vars.
+
+```yaml
+name: review-pr
+enabled: false      # never cron-fires; manual-run only
+inputs:
+  enabled: true     # accept --input K=V flags
+claude:
+  prompt_cmd: |
+    echo "/review-pr $CC_INPUT_PR_NUMBER"
+  allowed_tools: ["Bash(gh *)", "Read"]
+  permission_mode: auto
+```
+
+Trigger with inputs:
+
+```bash
+claude-cron run my-project/review-pr --input PR_NUMBER=123
+# or:
+claude-cron run my-project/review-pr --input-json '{"PR_NUMBER":"123"}'
+```
+
+Or over HTTP:
+
+```bash
+curl -X POST http://localhost:<port>/api/projects/my-project/jobs/review-pr/run \
+  -H 'content-type: application/json' \
+  -d '{"inputs":{"PR_NUMBER":"123"}}'
+```
+
+**Rules:**
+
+- Keys must match `^[A-Z][A-Z0-9_]*$` (env-var-safe). Lowercase / hyphenated
+  keys are rejected.
+- Max 64 keys per trigger; each value ≤ 4 KB.
+- Jobs without `inputs.enabled: true` reject `--input` and HTTP `inputs`
+  with a non-zero exit / HTTP 400 (`INPUTS_NOT_ENABLED`). Fail-closed.
+- Inputs are passed as env vars to BOTH `prompt_cmd` and the `claude`
+  subprocess.
+- The static `prompt:` field is **not** interpolated — inputs only reach
+  the prompt via `prompt_cmd` (or directly via env-reading slash commands).
+- Inputs are persisted to `runs.inputs_json` for traceability and shown on
+  the run-detail dashboard view (with `TOKEN`/`SECRET`/`KEY` keys masked).
+
+> **No secrets in inputs.** Use `~/.claude-cron/secrets.env` (mode 0600) for
+> secrets. The dashboard masks keys containing `TOKEN`/`SECRET`/`KEY` as a
+> courtesy but they still pass through env to the subprocess in plain text.
+
 ## Register and sync
 
 ```bash
