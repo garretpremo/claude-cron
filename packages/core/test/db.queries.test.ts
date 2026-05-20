@@ -259,6 +259,28 @@ test("getJobStatsSince returns null last_run when no runs exist", () => {
   expect(stats.last_run).toBeNull();
 });
 
+test("runs.inputs_json round-trip — null default + JSON stored/read", () => {
+  const db = freshDb();
+
+  // Without inputs_json — should default to null.
+  const id1 = insertRun(db, {
+    project: "p", job: "j", fire_time: 1, started_at: 1,
+    schedule: "*/5 * * * *", is_test: false,
+  });
+  const row1 = getRecentRuns(db, "p", "j", 1)[0]!;
+  expect(row1.inputs_json).toBeNull();
+
+  // With inputs_json — should round-trip through JSON.
+  const id2 = insertRun(db, {
+    project: "p", job: "j", fire_time: 2, started_at: 2,
+    schedule: "*/5 * * * *", is_test: false,
+    inputs_json: JSON.stringify({ TICKER: "NVDA", REQUEST_ID: "abc" }),
+  });
+  const rows = getRecentRuns(db, "p", "j", 2);
+  const row2 = rows.find((r) => r.id === id2)!;
+  expect(JSON.parse(row2.inputs_json!)).toEqual({ TICKER: "NVDA", REQUEST_ID: "abc" });
+});
+
 test("deleteOldRuns cascades events", () => {
   const db = freshDb();
   const id = insertRun(db, {
