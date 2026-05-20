@@ -23,7 +23,7 @@ test("openDb creates schema and sets WAL", () => {
   db.close();
 });
 
-test("openDb migrates existing v1 DB to v3 (adds pid + token columns)", () => {
+test("openDb migrates existing v1 DB forward (adds pid, token, and inputs_json columns)", () => {
   const dir = mkdtempSync(join(tmpdir(), "mig-"));
   const path = join(dir, "h.db");
 

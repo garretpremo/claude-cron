@@ -263,7 +263,7 @@ test("runs.inputs_json round-trip — null default + JSON stored/read", () => {
   const db = freshDb();
 
   // Without inputs_json — should default to null.
-  const id1 = insertRun(db, {
+  insertRun(db, {
     project: "p", job: "j", fire_time: 1, started_at: 1,
     schedule: "*/5 * * * *", is_test: false,
   });
