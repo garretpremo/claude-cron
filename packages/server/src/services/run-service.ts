@@ -33,6 +33,7 @@ export function toRunDTO(r: RunRow): RunDTO {
     output_tokens: r.output_tokens,
     cache_creation_tokens: r.cache_creation_tokens,
     cache_read_tokens: r.cache_read_tokens,
+    inputs_json: r.inputs_json,
   };
 }
 

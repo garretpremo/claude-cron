@@ -61,6 +61,9 @@ export { cmdSync, type SyncOpts } from "./commands/sync";
 // Cron (used by server status controller)
 export { readCrontab, writeCrontab, spliceBlock } from "./cron/sync";
 
+// Util
+export { maskSensitiveInputs } from "./util/mask-sensitive-inputs";
+
 // Paths and util
 export {
   ROOT,
