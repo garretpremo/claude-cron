@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { mkdtempSync, mkdirSync } from "node:fs";
 import { openDb } from "@claude-cron/core";
 import { runJobNow } from "../../src/services/action-service";
-import { HttpError } from "../../src/http/errors";
 import { seedProject, seedJobFile } from "../fixtures/seed";
 
 function fresh() {
