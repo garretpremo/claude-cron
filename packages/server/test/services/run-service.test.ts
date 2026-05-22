@@ -161,3 +161,19 @@ test("getRunWithEvents includes ordered events with parsed payload", () => {
 test("getRunWithEvents returns null for unknown run", () => {
   expect(getRunWithEvents(fresh(), 9999)).toBeNull();
 });
+
+test("toRunDTO round-trips inputs_json", () => {
+  const db = fresh();
+  const inputs = JSON.stringify({ TICKER: "NVDA", COUNT: "5" });
+  const id = seedRun(db, { project: "p", job: "j", inputs_json: inputs }, { status: "success" });
+  const run = getRunWithEvents(db, id);
+  expect(run).not.toBeNull();
+  expect(run!.inputs_json).toBe(inputs);
+});
+
+test("toRunDTO inputs_json is null when not set", () => {
+  const db = fresh();
+  const id = seedRun(db, { project: "p", job: "j" }, { status: "success" });
+  const run = getRunWithEvents(db, id);
+  expect(run!.inputs_json).toBeNull();
+});

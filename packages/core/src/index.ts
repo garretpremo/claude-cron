@@ -28,6 +28,7 @@ export {
 export * as queries from "./db/queries";
 
 // Jobs
+export { validateInputs } from "./job/inputs";
 export { JobSchema, type Job } from "./job/schema";
 export {
   loadJobsFromDir,
@@ -59,6 +60,9 @@ export { cmdSync, type SyncOpts } from "./commands/sync";
 
 // Cron (used by server status controller)
 export { readCrontab, writeCrontab, spliceBlock } from "./cron/sync";
+
+// Util
+export { maskSensitiveInputs, maskInputsJson } from "./util/mask-sensitive-inputs";
 
 // Paths and util
 export {

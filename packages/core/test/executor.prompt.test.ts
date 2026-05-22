@@ -40,3 +40,14 @@ test("nonzero prompt_cmd → error", async () => {
     })
   ).rejects.toThrow();
 });
+
+test("env vars are visible to prompt_cmd subprocess", async () => {
+  const r = await resolvePrompt({
+    claude: { prompt: null, prompt_cmd: 'echo "ticker=$CC_INPUT_TICKER"' } as any,
+    cwd: "/tmp",
+    timeoutMs: 5_000,
+    env: { CC_INPUT_TICKER: "NVDA" },
+  });
+  expect(r.prompt).toBe("ticker=NVDA");
+  expect(r.fromCmd).toBe(true);
+});

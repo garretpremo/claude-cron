@@ -16,16 +16,18 @@ export interface InsertRunInput {
   started_at: number;
   schedule: string;
   is_test: boolean;
+  inputs_json?: string | null;
 }
 
 export function insertRun(db: Database, r: InsertRunInput): number {
   const row = db
     .query(
-      `INSERT INTO runs (project, job, fire_time, started_at, schedule, status, is_test)
-       VALUES (?, ?, ?, ?, ?, 'running', ?) RETURNING id`
+      `INSERT INTO runs (project, job, fire_time, started_at, schedule, status, is_test, inputs_json)
+       VALUES (?, ?, ?, ?, ?, 'running', ?, ?) RETURNING id`
     )
     .get(
-      r.project, r.job, r.fire_time, r.started_at, r.schedule, r.is_test ? 1 : 0
+      r.project, r.job, r.fire_time, r.started_at, r.schedule, r.is_test ? 1 : 0,
+      r.inputs_json ?? null,
     ) as { id: number };
   return row.id;
 }
@@ -85,6 +87,7 @@ export interface RunRow {
   pid: number | null;
   input_tokens: number | null; output_tokens: number | null;
   cache_creation_tokens: number | null; cache_read_tokens: number | null;
+  inputs_json: string | null;
 }
 
 export function getRecentRuns(

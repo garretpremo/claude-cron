@@ -20,6 +20,13 @@ export interface ExecuteRunInput {
   lockPath: string;
   extraPath?: string;   // prepended to PATH (lets tests point to mock claude)
   isTest: boolean;
+  /** Per-trigger input values. Each key K is injected as CC_INPUT_<K> into
+   *  both the prompt_cmd subprocess and the claude subprocess env.
+   *  Callers are responsible for validating the map with `validateInputs`
+   *  (`src/job/inputs.ts`) before reaching here — `executeRun` does NOT
+   *  re-validate. The CLI and HTTP entry points perform validation at the
+   *  boundary. */
+  inputs?: Record<string, string>;
   /** Called exactly once, right after the run row is inserted (whatever the
    *  eventual terminal status). Lets callers (e.g. the Run-now API) return
    *  the run_id before the run completes. */
@@ -56,6 +63,22 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
     return { terminalStatus: "config_error", runId: id, exitCode: 2 };
   }
 
+  // 1b. Gate: inputs supplied but job does not accept them
+  if (i.inputs && Object.keys(i.inputs).length > 0 && !job.inputs.enabled) {
+    const id = insertRun(i.db, {
+      project: i.project, job: job.name, fire_time: now,
+      started_at: now, schedule: job.schedule, is_test: i.isTest,
+      inputs_json: JSON.stringify(i.inputs),
+    });
+    i.onStart?.(id);
+    finishRun(i.db, id, {
+      status: "config_error", exit_code: null, cost_usd: null,
+      summary: `job '${i.project}/${job.name}' does not accept inputs (set inputs.enabled: true in YAML)`,
+      ended_at: Date.now(),
+    });
+    return { terminalStatus: "config_error", runId: id, exitCode: 2 };
+  }
+
   const jobTimeoutMs = parseDuration(job.timeout);
   const staleMs = Math.max(2 * jobTimeoutMs, ABANDONED_FLOOR_MS);
 
@@ -81,6 +104,7 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
   const runId = insertRun(i.db, {
     project: i.project, job: job.name, fire_time: now,
     started_at: Date.now(), schedule: job.schedule, is_test: i.isTest,
+    inputs_json: i.inputs && Object.keys(i.inputs).length > 0 ? JSON.stringify(i.inputs) : null,
   });
   i.onStart?.(runId);
 
@@ -97,6 +121,11 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
   const cwdAbs = resolve(projectRoot, job.cwd);
   const env: Record<string, string> = { ...process.env } as any;
   if (i.extraPath) env.PATH = `${i.extraPath}:${env.PATH ?? ""}`;
+  if (i.inputs) {
+    for (const [k, v] of Object.entries(i.inputs)) {
+      env[`CC_INPUT_${k}`] = v;
+    }
+  }
 
   try {
     // 5. Preflight

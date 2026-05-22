@@ -196,6 +196,45 @@ logging: { retention_days: 30 }
   expect(row.pid).toBeGreaterThan(0);
 });
 
+test("inputs map flows into prompt_cmd subprocess env", async () => {
+  const { dir, db } = fresh();
+  const mcDir = mockClaudeDir();
+
+  mkdirSync(join(dir, "project/.claude-jobs"));
+  const jobPath = join(dir, "project/.claude-jobs/j.yaml");
+  writeFileSync(jobPath, `
+name: j
+schedule: "*/5 * * * *"
+inputs:
+  enabled: true
+claude:
+  prompt_cmd: 'echo "ticker=$CC_INPUT_TICKER"'
+  allowed_tools: []
+  permission_mode: auto
+cwd: "."
+timeout: 5s
+logging: { retention_days: 30 }
+`);
+
+  const result = await executeRun({
+    db, project: "p", jobFile: jobPath,
+    lockPath: join(dir, "locks/p--j.lock"),
+    extraPath: mcDir, isTest: false,
+    inputs: { TICKER: "NVDA" },
+  });
+
+  expect(result.terminalStatus).toBe("success");
+
+  // Find the prompt_cmd event and verify the resolved prompt contains the injected value.
+  const events = db.query(
+    "SELECT * FROM events WHERE run_id = ? ORDER BY seq"
+  ).all(result.runId!) as any[];
+  const promptCmdEvent = events.find((e: any) => e.event_type === "prompt_cmd");
+  expect(promptCmdEvent).toBeDefined();
+  const payload = JSON.parse(promptCmdEvent.payload);
+  expect(payload.prompt).toBe("ticker=NVDA");
+});
+
 test("SIGTERM to child produces status=interrupted", async () => {
   const { dir, db } = fresh();
   const mcDir = mockClaudeDir();

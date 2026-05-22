@@ -85,6 +85,7 @@ export const RunDTOSchema = z.object({
   cache_creation_tokens: z.number().int().nullable(),
   cache_read_tokens: z.number().int().nullable(),
   coalesced_count: z.number().int().optional(),
+  inputs_json: z.string().nullable(),
 });
 export type RunDTO = z.infer<typeof RunDTOSchema>;
 

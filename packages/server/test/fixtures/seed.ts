@@ -29,6 +29,7 @@ export function seedRun(
     started_at: base.started_at ?? Date.now(),
     schedule: base.schedule ?? "* * * * *",
     is_test: base.is_test ?? false,
+    inputs_json: base.inputs_json ?? null,
   };
   const id = insertRun(db, input);
   if (opts.pid !== undefined && opts.pid !== null) {

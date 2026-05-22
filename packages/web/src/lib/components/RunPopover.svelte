@@ -137,6 +137,18 @@ $effect(() => {
               <span class="val summary-text">{detail.summary}</span>
             </div>
           {/if}
+          {#if detail.inputs_json}
+            {@const inputs = JSON.parse(detail.inputs_json) as Record<string, string>}
+            <div class="meta-row inputs-row">
+              <span class="key">inputs</span>
+              <dl class="inputs-table">
+                {#each Object.entries(inputs) as [k, v]}
+                  <dt>{k}</dt>
+                  <dd>{v}</dd>
+                {/each}
+              </dl>
+            </div>
+          {/if}
         </div>
 
         <h3>Event trace</h3>
@@ -231,6 +243,22 @@ $effect(() => {
   font-size: var(--font-size-sm);
 }
 .meta-row.summary { align-items: start; }
+.meta-row.inputs-row { align-items: start; }
+.inputs-table {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-size-xs);
+}
+.inputs-table dt {
+  color: var(--md-sys-color-on-surface-variant);
+}
+.inputs-table dd {
+  margin: 0;
+  word-break: break-all;
+}
 .summary-text {
   white-space: pre-wrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

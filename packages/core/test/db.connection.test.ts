@@ -19,11 +19,11 @@ test("openDb creates schema and sets WAL", () => {
   expect(String(journal.journal_mode).toLowerCase()).toBe("wal");
 
   const version = db.query("SELECT version FROM schema_version").get() as any;
-  expect(version.version).toBe(4);
+  expect(version.version).toBe(5);
   db.close();
 });
 
-test("openDb migrates existing v1 DB to v3 (adds pid + token columns)", () => {
+test("openDb migrates existing v1 DB forward (adds pid, token, and inputs_json columns)", () => {
   const dir = mkdtempSync(join(tmpdir(), "mig-"));
   const path = join(dir, "h.db");
 
@@ -54,9 +54,10 @@ test("openDb migrates existing v1 DB to v3 (adds pid + token columns)", () => {
   expect(names).toContain("output_tokens");
   expect(names).toContain("cache_creation_tokens");
   expect(names).toContain("cache_read_tokens");
+  expect(names).toContain("inputs_json");
 
   const version = db.query("SELECT version FROM schema_version").get() as any;
-  expect(version.version).toBe(4);
+  expect(version.version).toBe(5);
   db.close();
 });
 
@@ -84,6 +85,6 @@ test("openDb on fresh DB creates favorites table at v4", () => {
   expect(names).toEqual(["created_at", "project"]);
 
   const version = db.query("SELECT version FROM schema_version").get() as any;
-  expect(version.version).toBe(4);
+  expect(version.version).toBe(5);
   db.close();
 });

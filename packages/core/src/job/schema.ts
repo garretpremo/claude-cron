@@ -53,6 +53,14 @@ export const JobSchema = z.object({
   auth: z.enum(["subscription", "api_key"]).default("subscription"),
   preflight: PreflightSchema.nullable().default(null),
   claude: ClaudeSchema,
+  // inner .default(false): fills enabled when inputs:{} is provided without it
+  // outer .default({enabled:false}): fills the whole block when inputs is omitted
+  inputs: z
+    .object({
+      enabled: z.boolean().default(false),
+    })
+    .strict()
+    .default({ enabled: false }),
   cwd: z.string().default("."),
   timeout: Duration.default("10m"),
   logging: LoggingSchema.default({}),

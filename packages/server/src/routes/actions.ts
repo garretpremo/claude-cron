@@ -59,10 +59,14 @@ export function jobRunRoute(deps: ActionsDeps) {
   return defineRoute({
     path: "/api/projects/:project/jobs/:job/run",
     method: "POST",
-    input: z.object({ project: z.string(), job: z.string() }),
+    input: z.object({
+      project: z.string(),
+      job:     z.string(),
+      inputs:  z.record(z.string(), z.string()).optional(),
+    }),
     output: OkRunIdSchema,
-    handler: async ({ project, job }) => {
-      const { run_id } = await runJobNow(deps.db, deps.registryPath, project, job);
+    handler: async ({ project, job, inputs }) => {
+      const { run_id } = await runJobNow(deps.db, deps.registryPath, project, job, inputs);
       return { ok: true as const, run_id };
     },
   });
