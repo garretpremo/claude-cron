@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import YAML from "yaml";
-import { readRegistry, validateInputs } from "@claude-cron/core";
+import { readRegistry, validateInputs, maskInputsJson } from "@claude-cron/core";
 import { jobsDir, lockPath } from "@claude-cron/core";
 import { getJob } from "./job-service";
 import { HttpError } from "../http/errors";
@@ -107,7 +107,7 @@ export function stopRun(db: Database, runId: number, opts: StopRunOpts = {}): Ru
     output_tokens: row.output_tokens ?? null,
     cache_creation_tokens: row.cache_creation_tokens ?? null,
     cache_read_tokens: row.cache_read_tokens ?? null,
-    inputs_json: row.inputs_json ?? null,
+    inputs_json: maskInputsJson(row.inputs_json ?? null),
   };
 }
 

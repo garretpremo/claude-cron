@@ -3,7 +3,6 @@ import { onDestroy, onMount } from "svelte";
 import { browser } from "$app/environment";
 import { api, type RunWithEventsDTO } from "$lib/api";
 import { runStream, type RunEvent, type RunStream } from "$lib/stores/run-stream";
-import { maskSensitiveInputs } from "@claude-cron/core";
 import EventLog from "./EventLog.svelte";
 if (browser) void import("@m3e/chips");
 
@@ -139,7 +138,7 @@ $effect(() => {
             </div>
           {/if}
           {#if detail.inputs_json}
-            {@const inputs = maskSensitiveInputs(JSON.parse(detail.inputs_json) as Record<string, string>)}
+            {@const inputs = JSON.parse(detail.inputs_json) as Record<string, string>}
             <div class="meta-row inputs-row">
               <span class="key">inputs</span>
               <dl class="inputs-table">

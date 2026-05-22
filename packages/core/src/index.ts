@@ -62,7 +62,7 @@ export { cmdSync, type SyncOpts } from "./commands/sync";
 export { readCrontab, writeCrontab, spliceBlock } from "./cron/sync";
 
 // Util
-export { maskSensitiveInputs } from "./util/mask-sensitive-inputs";
+export { maskSensitiveInputs, maskInputsJson } from "./util/mask-sensitive-inputs";
 
 // Paths and util
 export {

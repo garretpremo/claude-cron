@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { maskSensitiveInputs } from "../src/util/mask-sensitive-inputs";
+import { maskSensitiveInputs, maskInputsJson } from "../src/util/mask-sensitive-inputs";
 
 describe("maskSensitiveInputs", () => {
   test("masks keys containing TOKEN/SECRET/KEY", () => {
@@ -15,5 +15,18 @@ describe("maskSensitiveInputs", () => {
   });
   test("KEY alone is sensitive", () => {
     expect(maskSensitiveInputs({ KEY: "x" })).toEqual({ KEY: "****" });
+  });
+});
+
+describe("maskInputsJson", () => {
+  test("masks sensitive values in serialized json", () => {
+    expect(maskInputsJson(JSON.stringify({ TICKER: "NVDA", API_TOKEN: "abc" })))
+      .toBe(JSON.stringify({ TICKER: "NVDA", API_TOKEN: "****" }));
+  });
+  test("passes through null", () => {
+    expect(maskInputsJson(null)).toBeNull();
+  });
+  test("passes through empty string", () => {
+    expect(maskInputsJson("")).toBe("");
   });
 });

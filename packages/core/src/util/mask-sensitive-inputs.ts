@@ -13,3 +13,13 @@ export function maskSensitiveInputs(inputs: Record<string, string>): Record<stri
   }
   return out;
 }
+
+/**
+ * Mask a serialized `inputs_json` payload, returning re-serialized JSON so a
+ * sensitive value never crosses the wire to the dashboard. Pass-through for
+ * null/empty.
+ */
+export function maskInputsJson(json: string | null): string | null {
+  if (!json) return json;
+  return JSON.stringify(maskSensitiveInputs(JSON.parse(json) as Record<string, string>));
+}
