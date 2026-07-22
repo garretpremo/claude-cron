@@ -78,7 +78,9 @@ function formatCost(c: number | null): string {
             tabindex="0"
             role="button"
           >
-            <td class="time">{formatTime(r.started_at)}</td>
+            <!-- Collapsed skip rows: started_at is the streak's FIRST skip;
+                 show the latest skip (ended_at) so the row reads as current. -->
+            <td class="time">{formatTime(r.coalesced_count && r.coalesced_count > 1 && r.ended_at ? r.ended_at : r.started_at)}</td>
             {#if showProject}<td class="project">{r.project}</td>{/if}
             {#if showJob}<td class="job">{r.job}</td>{/if}
             <td class="status-cell">
@@ -87,7 +89,7 @@ function formatCost(c: number | null): string {
                 <span class="x">×{r.coalesced_count}</span>
               {/if}
             </td>
-            <td class="num">{formatDuration(r.duration_ms)}</td>
+            <td class="num">{r.coalesced_count && r.coalesced_count > 1 ? "—" : formatDuration(r.duration_ms)}</td>
             <td class="num">{formatCost(r.cost_usd)}</td>
           </tr>
         {/each}

@@ -15,6 +15,8 @@ export interface SeedRunOpts {
   summary?: string | null;
   exit_code?: number | null;
   pid?: number | null;
+  /** Seeds a collapsed skipped_preflight row representing N consecutive skips. */
+  skip_count?: number;
 }
 
 export function seedRun(
@@ -43,6 +45,9 @@ export function seedRun(
       summary: opts.summary ?? null,
       ended_at: opts.ended_at ?? Date.now(),
     });
+  }
+  if (opts.skip_count !== undefined) {
+    db.query("UPDATE runs SET skip_count=? WHERE id=?").run(opts.skip_count, id);
   }
   return id;
 }

@@ -5,7 +5,7 @@ import type { Database } from "bun:sqlite";
 import { JobSchema, type Job } from "../job/schema";
 import {
   insertRun, finishRun, appendEvent, abandonStaleRuns,
-  deleteOldRuns, type RunStatus, type EventType,
+  deleteOldRuns, collapsePreflightSkip, type RunStatus, type EventType,
 } from "../db/queries";
 import { parseDuration } from "../util/duration";
 import { acquireLock } from "./lock";
@@ -144,6 +144,10 @@ export async function executeRun(i: ExecuteRunInput): Promise<ExecuteRunResult> 
           ended_at: Date.now(),
         });
         emit("end", { status: "skipped_preflight" });
+        // Consecutive preflight skips collapse into a single counter row so
+        // always-gated jobs don't flood the runs table. This row survives
+        // (runId stays valid); the previous skip row is absorbed.
+        collapsePreflightSkip(i.db, runId);
         await lock.release();
         return { terminalStatus: "skipped_preflight", runId, exitCode: 0 };
       }

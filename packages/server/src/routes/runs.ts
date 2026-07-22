@@ -91,7 +91,6 @@ export function runsListRoute(deps: RunsDeps) {
       since: OptionalNonNegativeInt,
       limit: NonNegativeInt(50, 500),
       offset: NonNegativeInt(0),
-      coalesce: z.literal("skipped_preflight").optional(),
     }),
     output: PaginatedRunsDTOSchema,
     handler: (input) =>
@@ -103,7 +102,6 @@ export function runsListRoute(deps: RunsDeps) {
         since: input.since,
         limit: input.limit,
         offset: input.offset,
-        coalesce: input.coalesce,
       }),
   });
 }

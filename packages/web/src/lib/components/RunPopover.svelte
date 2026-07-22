@@ -110,15 +110,31 @@ $effect(() => {
           <div class="meta-row">
             <span class="key">status</span>
             <m3e-chip class="status-chip status-{detail.status}">{detail.status}</m3e-chip>
+            {#if detail.coalesced_count && detail.coalesced_count > 1}
+              <span class="coalesced-x">×{detail.coalesced_count}</span>
+            {/if}
           </div>
-          <div class="meta-row">
-            <span class="key">started</span>
-            <span class="val">{new Date(detail.started_at).toLocaleString()}</span>
-          </div>
-          <div class="meta-row">
-            <span class="key">duration</span>
-            <span class="val">{formatDuration(detail.duration_ms)}</span>
-          </div>
+          {#if detail.coalesced_count && detail.coalesced_count > 1}
+            <!-- Collapsed skip streak: started_at is the first skip, ended_at
+                 the latest; a run "duration" would be the streak span. -->
+            <div class="meta-row">
+              <span class="key">first skip</span>
+              <span class="val">{new Date(detail.started_at).toLocaleString()}</span>
+            </div>
+            <div class="meta-row">
+              <span class="key">last skip</span>
+              <span class="val">{detail.ended_at ? new Date(detail.ended_at).toLocaleString() : "—"}</span>
+            </div>
+          {:else}
+            <div class="meta-row">
+              <span class="key">started</span>
+              <span class="val">{new Date(detail.started_at).toLocaleString()}</span>
+            </div>
+            <div class="meta-row">
+              <span class="key">duration</span>
+              <span class="val">{formatDuration(detail.duration_ms)}</span>
+            </div>
+          {/if}
           <div class="meta-row">
             <span class="key">cost</span>
             <span class="val">{formatCost(detail.cost_usd)}</span>
@@ -272,6 +288,11 @@ $effect(() => {
   opacity: 0.6;
 }
 .val {
+  font-variant-numeric: tabular-nums;
+}
+.coalesced-x {
+  font-size: var(--font-size-xs);
+  opacity: 0.7;
   font-variant-numeric: tabular-nums;
 }
 h3 {

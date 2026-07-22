@@ -61,10 +61,10 @@ test("GET /api/runs with filters", async () => {
 });
 
 test("GET /api/runs supports CSV project, CSV status, and since", async () => {
-  seedRun(db, { project: "a", job: "j", started_at: 100 }, { status: "success" });
-  seedRun(db, { project: "a", job: "j", started_at: 200 }, { status: "failure" });
-  seedRun(db, { project: "b", job: "j", started_at: 300 }, { status: "success" });
-  seedRun(db, { project: "c", job: "j", started_at: 400 }, { status: "timeout" });
+  seedRun(db, { project: "a", job: "j", started_at: 100 }, { status: "success", ended_at: 110 });
+  seedRun(db, { project: "a", job: "j", started_at: 200 }, { status: "failure", ended_at: 210 });
+  seedRun(db, { project: "b", job: "j", started_at: 300 }, { status: "success", ended_at: 310 });
+  seedRun(db, { project: "c", job: "j", started_at: 400 }, { status: "timeout", ended_at: 410 });
 
   // CSV project
   const r1 = await fetch(`${baseUrl}/api/runs?project=a,b`);
@@ -74,7 +74,7 @@ test("GET /api/runs supports CSV project, CSV status, and since", async () => {
   const r2 = await fetch(`${baseUrl}/api/runs?project=a,b&status=success,failure`);
   expect((await r2.json()).total).toBe(3);
 
-  // since (epoch ms) — only runs with started_at >= 250 should match
+  // since (epoch ms) — windowed on last activity (ended_at) >= 250
   const r3 = await fetch(`${baseUrl}/api/runs?since=250`);
   expect((await r3.json()).total).toBe(2);
 

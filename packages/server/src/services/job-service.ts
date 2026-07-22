@@ -25,14 +25,17 @@ function buildSummary(
     .get(project, jobName) as { id: number; started_at: number; status: RunStatus } | null;
 
   const recent = db
-    .query(`SELECT status FROM runs WHERE project=? AND job=? ORDER BY started_at DESC LIMIT ?`)
-    .all(project, jobName, RECENT_WINDOW) as { status: string }[];
+    .query(`SELECT status, skip_count FROM runs WHERE project=? AND job=? ORDER BY started_at DESC LIMIT ?`)
+    .all(project, jobName, RECENT_WINDOW) as { status: string; skip_count: number }[];
 
-  const counts = { total: recent.length, successes: 0, failures: 0, skipped: 0 };
+  const counts = { total: 0, successes: 0, failures: 0, skipped: 0 };
   for (const r of recent) {
+    // Collapsed skipped_preflight rows represent skip_count runs each.
+    const n = r.status === "skipped_preflight" ? r.skip_count : 1;
+    counts.total += n;
     if (r.status === "success") counts.successes++;
     else if (["failure", "timeout", "config_error", "abandoned"].includes(r.status)) counts.failures++;
-    else if (r.status === "skipped_preflight" || r.status === "skipped_overlap") counts.skipped++;
+    else if (r.status === "skipped_preflight" || r.status === "skipped_overlap") counts.skipped += n;
   }
 
   return {

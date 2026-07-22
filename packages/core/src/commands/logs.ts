@@ -17,7 +17,7 @@ export async function cmdLogs(opts: LogsOpts): Promise<void> {
 
   const rows = db
     .query(
-      `SELECT id, started_at, ended_at, status, exit_code, cost_usd, summary
+      `SELECT id, started_at, ended_at, status, exit_code, cost_usd, summary, skip_count
        FROM runs WHERE project=? AND job=? ORDER BY started_at DESC LIMIT ?`
     )
     .all(project, job, limit) as any[];
@@ -53,10 +53,13 @@ export async function cmdLogs(opts: LogsOpts): Promise<void> {
   }
 
   for (const r of rows) {
-    const when = new Date(r.started_at).toISOString();
-    const duration = r.ended_at ? `${r.ended_at - r.started_at}ms` : "—";
+    const collapsed = r.skip_count > 1;
+    // Collapsed skip rows span first→latest skip; a duration is meaningless.
+    const when = new Date(collapsed && r.ended_at ? r.ended_at : r.started_at).toISOString();
+    const duration = collapsed ? "—" : r.ended_at ? `${r.ended_at - r.started_at}ms` : "—";
     const cost = r.cost_usd != null ? `$${r.cost_usd.toFixed(4)}` : "";
-    console.log(`#${r.id}  ${when}  ${r.status}  ${duration}  ${cost}`);
+    const status = collapsed ? `${r.status} ×${r.skip_count}` : r.status;
+    console.log(`#${r.id}  ${when}  ${status}  ${duration}  ${cost}`);
   }
 }
 

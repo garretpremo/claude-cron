@@ -32,10 +32,10 @@ End-to-end smoke flows are in the README under "Manual smoke tests". Use those r
 Three persistent state locations — all under `~/.claude-cron/` (see `packages/core/src/util/paths.ts`):
 
 1. **`projects.toml`** — registry of `name → absolute path`. Written by `register`/`unregister`.
-2. **`history.db`** (SQLite) — `runs` + `events` + `favorites` tables (schema in `packages/core/src/db/schema.sql`). Migrations are SQL files in `packages/core/src/db/migrations/` applied by `packages/core/src/db/connection.ts`. Current schema version is **4** (favorites table) — bump `CURRENT_VERSION` in `connection.ts` and add a numbered migration file when extending the schema.
+2. **`history.db`** (SQLite) — `runs` + `events` + `favorites` tables (schema in `packages/core/src/db/schema.sql`). Migrations are SQL files in `packages/core/src/db/migrations/` applied by `packages/core/src/db/connection.ts`. Current schema version is **6** (`skip_count` preflight-skip collapsing) — bump `CURRENT_VERSION` in `connection.ts` and add a numbered migration file when extending the schema.
 3. **User crontab** — managed in per-project blocks delimited by `# BEGIN claude-cron:<project>` / `# END`, plus a `global` block and a prelude block (`PATH`, `HOME`, `DBUS_SESSION_BUS_ADDRESS`, `XDG_RUNTIME_DIR` for keyring access from cron). `sync` rewrites exactly one block at a time and never touches lines outside managed blocks.
 
-Job definitions are colocated with the project they automate at `<project>/.claude-jobs/*.yaml`, parsed/validated by Zod schema in `packages/core/src/job/schema.ts`. The schema enforces: exactly one of `claude.prompt | claude.prompt_cmd`, valid cron expression, valid duration strings.
+Job definitions are colocated with the project they automate at `<project>/.claude-jobs/*.yaml`, parsed/validated by Zod schema in `packages/core/src/job/schema.ts`. The schema enforces: exactly one of `claude.prompt | claude.prompt_cmd`, valid cron expression, valid duration strings. All blocks are `.strict()` — an unknown/misplaced key (e.g. `model:` at the top level instead of under `claude:`) is a `config_error`, never a silent no-op.
 
 ### Layering
 
@@ -111,9 +111,16 @@ The `@m3e/*` packages ship multiple chip variants. **Most chip families have a "
 
 `running, success, failure, timeout, interrupted, abandoned, skipped_preflight, skipped_overlap, config_error`. If you add a status, update both the SQL CHECK and the `RunStatus` type in `packages/core/src/db/queries.ts`.
 
-### Coalescing in `listRuns`
+### Preflight-skip collapsing (`skip_count`)
 
-`listRuns` accepts `coalesce: RunStatus` (currently allow-listed in the controller to `skipped_preflight` only). When set, consecutive runs sharing both `status` AND `(project, job)` are collapsed into a single leader row whose `coalesced_count` reflects the group size. The service fetches in 200-row chunks until the `limit`-th group is finalized — so `limit=10` returns 10 logical rows even if any single group spans thousands of physical runs. The frontend uses this on the Activity page and the job-detail "Recent runs" panel.
+Consecutive `skipped_preflight` runs are collapsed **in the DB**, not at read time. When a run ends `skipped_preflight` and the latest row for the same `(project, job, is_test)` is also a preflight skip, `collapsePreflightSkip` (called from the executor's skip branch) keeps the *new* row — so the `run_id` handed to `onStart` stays valid — bumps its `skip_count`, rewinds `started_at` to the streak's first skip, and deletes the absorbed row + its events. Invariant: at most one `skipped_preflight` row per `(project, job)` after the most recent non-skip run. Migration 006 compacted historical rows the same way.
+
+Consequences readers must respect:
+
+- On a collapsed row, `started_at` = first skip; `ended_at`/`fire_time`/`exit_code`/`summary` = latest skip. A "duration" derived from those spans the whole streak — the UI shows "—" instead.
+- Aggregates count a skip row as `skip_count` runs (`getCountsSince`, `getTopJobsByActivity.skipped_count`, `getJobStatsSince`), and window/order/reap on **last activity** (`COALESCE(ended_at, started_at)`) so an active streak neither disappears from recent windows nor gets reaped by `deleteOldRuns` while its `started_at` ages.
+- `toRunDTO` surfaces `skip_count > 1` as the optional `coalesced_count` DTO field (rendered as `×N` in the Activity table and run popover). The old read-time `coalesce` query param on `/api/runs` is gone.
+- Collapsing deletes the previous skip row, so a deep link (`?run=<id>`) to a skip run 404s once a newer skip absorbs it.
 
 ## Conventions
 

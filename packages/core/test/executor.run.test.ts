@@ -135,6 +135,66 @@ logging: { retention_days: 30 }
   expect(result.terminalStatus).toBe("skipped_preflight");
 });
 
+test("consecutive preflight skips collapse into one counter row", async () => {
+  const { dir, db } = fresh();
+  const mcDir = mockClaudeDir();
+
+  mkdirSync(join(dir, "project/.claude-jobs"));
+  const jobPath = join(dir, "project/.claude-jobs/j.yaml");
+  const yaml = (preflightExit: number) => `
+name: j
+schedule: "*/5 * * * *"
+preflight:
+  run: "exit ${preflightExit}"
+  timeout: 5s
+claude:
+  prompt: "hello"
+  allowed_tools: []
+  permission_mode: auto
+cwd: "."
+timeout: 5s
+logging: { retention_days: 30 }
+`;
+  const exec = () => executeRun({
+    db, project: "p", jobFile: jobPath,
+    lockPath: join(dir, "locks/p--j.lock"),
+    extraPath: mcDir,
+    isTest: false,
+  });
+
+  // Three gated fires → a single row with skip_count=3 whose id is the
+  // latest run's and whose started_at is the first skip's.
+  writeFileSync(jobPath, yaml(1));
+  const first = await exec();
+  await exec();
+  const third = await exec();
+  let rows = getRecentRuns(db, "p", "j", 10);
+  expect(rows.length).toBe(1);
+  expect(rows[0]!.id).toBe(third.runId!);
+  expect(rows[0]!.skip_count).toBe(3);
+  const firstStart = rows[0]!.started_at;
+  expect(first.runId).not.toBe(third.runId);
+
+  // A real run breaks the streak; the next skip starts a fresh counter.
+  writeFileSync(jobPath, yaml(0));
+  await exec();
+  writeFileSync(jobPath, yaml(1));
+  await exec();
+  rows = getRecentRuns(db, "p", "j", 10);
+  expect(rows.map((r) => [r.status, r.skip_count])).toEqual([
+    ["skipped_preflight", 1],
+    ["success", 1],
+    ["skipped_preflight", 3],
+  ]);
+  expect(rows[2]!.started_at).toBe(firstStart);
+
+  // No orphaned events for the absorbed rows.
+  const orphans = db
+    .query("SELECT COUNT(*) AS n FROM events WHERE run_id NOT IN (SELECT id FROM runs)")
+    .get() as any;
+  expect(orphans.n).toBe(0);
+});
+
 test("overlap skip: second invocation with lock held", async () => {
   const { dir, db } = fresh();
   const mcDir = mockClaudeDir();

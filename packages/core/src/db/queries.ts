@@ -88,6 +88,47 @@ export interface RunRow {
   input_tokens: number | null; output_tokens: number | null;
   cache_creation_tokens: number | null; cache_read_tokens: number | null;
   inputs_json: string | null;
+  /** Number of consecutive preflight skips this row represents (>= 1). On a
+   *  collapsed row, started_at is the streak's first skip while fire_time /
+   *  ended_at reflect the most recent one. Always 1 for other statuses. */
+  skip_count: number;
+}
+
+/**
+ * Collapse a just-finished skipped_preflight run into the previous row when
+ * that row is itself a preflight skip for the same (project, job, is_test).
+ * The NEW row survives (so its id — already handed to onStart — stays valid):
+ * it inherits the streak's first started_at and accumulated skip_count; the
+ * previous row and its events are deleted. Returns true when a collapse
+ * happened.
+ */
+export function collapsePreflightSkip(db: Database, runId: number): boolean {
+  return db.transaction(() => {
+    const cur = db
+      .query(
+        `SELECT project, job, is_test FROM runs
+         WHERE id=? AND status='skipped_preflight'`
+      )
+      .get(runId) as { project: string; job: string; is_test: number } | null;
+    if (!cur) return false;
+    const prev = db
+      .query(
+        `SELECT id, status, is_test, started_at, skip_count FROM runs
+         WHERE project=? AND job=? AND id<>?
+         ORDER BY started_at DESC, id DESC LIMIT 1`
+      )
+      .get(cur.project, cur.job, runId) as
+      | { id: number; status: string; is_test: number; started_at: number; skip_count: number }
+      | null;
+    if (!prev || prev.status !== "skipped_preflight" || prev.is_test !== cur.is_test) {
+      return false;
+    }
+    db.query(`UPDATE runs SET skip_count=?, started_at=? WHERE id=?`)
+      .run(prev.skip_count + 1, prev.started_at, runId);
+    db.query(`DELETE FROM events WHERE run_id=?`).run(prev.id);
+    db.query(`DELETE FROM runs WHERE id=?`).run(prev.id);
+    return true;
+  })();
 }
 
 export function getRecentRuns(
@@ -103,8 +144,11 @@ export function getRecentRuns(
 export function deleteOldRuns(
   db: Database, project: string, job: string, cutoffMs: number
 ): number {
+  // COALESCE(ended_at, started_at): a collapsed skip row's started_at is the
+  // streak's FIRST skip and can age past the cutoff while the row still
+  // tracks current activity — reap on last-activity time instead.
   const r = db
-    .query(`DELETE FROM runs WHERE project=? AND job=? AND started_at < ?`)
+    .query(`DELETE FROM runs WHERE project=? AND job=? AND COALESCE(ended_at, started_at) < ?`)
     .run(project, job, cutoffMs);
   return Number(r.changes);
 }
@@ -152,22 +196,27 @@ function zeroCounts(): StatusCounts {
 }
 
 /**
- * Returns a status→count map for runs whose `started_at >= since`.
- * If `project` is given, scopes counts to that project. Statuses with zero
- * counts are still present in the returned object.
+ * Returns a status→count map for runs active in the window (last activity —
+ * COALESCE(ended_at, started_at) — at or after `since`). skipped_preflight
+ * rows count as their skip_count. Windowing on last activity keeps a long
+ * skip streak (whose started_at predates the window) visible; the trade-off
+ * is that a streak's full count attributes to any window containing its
+ * latest skip. If `project` is given, scopes counts to that project.
+ * Statuses with zero counts are still present in the returned object.
  */
 export function getCountsSince(
   db: Database, since: number, project?: string
 ): StatusCounts {
   const out = zeroCounts();
+  const select = `SELECT status,
+       SUM(CASE WHEN status='skipped_preflight' THEN skip_count ELSE 1 END) AS n
+     FROM runs`;
   const rows = project
     ? db.query(
-        `SELECT status, COUNT(*) AS n FROM runs
-         WHERE started_at >= ? AND project = ? GROUP BY status`
+        `${select} WHERE COALESCE(ended_at, started_at) >= ? AND project = ? GROUP BY status`
       ).all(since, project) as Array<{ status: RunStatus; n: number }>
     : db.query(
-        `SELECT status, COUNT(*) AS n FROM runs
-         WHERE started_at >= ? GROUP BY status`
+        `${select} WHERE COALESCE(ended_at, started_at) >= ? GROUP BY status`
       ).all(since) as Array<{ status: RunStatus; n: number }>;
   for (const r of rows) out[r.status] = r.n;
   return out;
@@ -220,22 +269,26 @@ export interface JobActivityRow {
 }
 
 /**
- * Top (project, job) pairs by success+failure count in the window. Skipped
- * count is reported separately for context but does NOT factor into ranking
- * or the inclusion filter. Filters jobs with success+failure == 0.
+ * Top (project, job) pairs by success+failure count in the window (last
+ * activity at or after `since` — see getCountsSince for why). Skipped count
+ * is reported separately for context (collapsed skipped_preflight rows count
+ * as their skip_count) but does NOT factor into ranking or the inclusion
+ * filter. Filters jobs with success+failure == 0.
  */
 export function getTopJobsByActivity(
   db: Database, since: number, limit: number, project?: string
 ): JobActivityRow[] {
-  const where = project ? "started_at >= ? AND project = ?" : "started_at >= ?";
+  const where = project
+    ? "COALESCE(ended_at, started_at) >= ? AND project = ?"
+    : "COALESCE(ended_at, started_at) >= ?";
   const args: Array<string | number> = project ? [since, project] : [since];
   return db
     .query(
       `SELECT project, job,
               SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) AS success_count,
               SUM(CASE WHEN status='failure' THEN 1 ELSE 0 END) AS failure_count,
-              SUM(CASE WHEN status IN ('skipped_preflight','skipped_overlap')
-                       THEN 1 ELSE 0 END) AS skipped_count,
+              SUM(CASE WHEN status='skipped_preflight' THEN skip_count
+                       WHEN status='skipped_overlap' THEN 1 ELSE 0 END) AS skipped_count,
               MAX(started_at) AS last_started
        FROM runs
        WHERE ${where}
@@ -254,16 +307,20 @@ export interface JobStatsResult {
 }
 
 /**
- * Per-job stats since `since`: status histogram, token+cost totals, and the
- * single most-recent run (regardless of status).
+ * Per-job stats for runs active since `since` (last activity — see
+ * getCountsSince): status histogram (collapsed skipped_preflight rows count
+ * as their skip_count), token+cost totals, and the single most-recent run
+ * (regardless of status).
  */
 export function getJobStatsSince(
   db: Database, project: string, job: string, since: number
 ): JobStatsResult {
   const counts = db
     .query(
-      `SELECT status, COUNT(*) AS n FROM runs
-       WHERE project=? AND job=? AND started_at >= ?
+      `SELECT status,
+              SUM(CASE WHEN status='skipped_preflight' THEN skip_count ELSE 1 END) AS n
+       FROM runs
+       WHERE project=? AND job=? AND COALESCE(ended_at, started_at) >= ?
        GROUP BY status`
     )
     .all(project, job, since) as Array<{ status: RunStatus; n: number }>;
@@ -274,7 +331,7 @@ export function getJobStatsSince(
               COALESCE(SUM(output_tokens), 0) AS o,
               COALESCE(SUM(cost_usd), 0)      AS c
        FROM runs
-       WHERE project=? AND job=? AND started_at >= ?`
+       WHERE project=? AND job=? AND COALESCE(ended_at, started_at) >= ?`
     )
     .get(project, job, since) as { i: number; o: number; c: number };
 

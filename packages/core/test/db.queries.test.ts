@@ -5,7 +5,7 @@ import { mkdtempSync } from "node:fs";
 import { openDb } from "../src/db/connection";
 import {
   insertRun, finishRun, appendEvent, abandonStaleRuns,
-  getRecentRuns, deleteOldRuns,
+  getRecentRuns, deleteOldRuns, collapsePreflightSkip,
   listFavorites, setFavorite, unsetFavorite,
   getCountsSince, getRunningRuns,
   getTopProjectsByActivity, getTopJobsByActivity,
@@ -77,6 +77,114 @@ test("abandonStaleRuns", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Preflight-skip collapsing
+// ---------------------------------------------------------------------------
+
+/** Simulates the executor's skip path: insert running row, finish as
+ *  skipped_preflight, then attempt the collapse. Returns the run id. */
+function skipRun(
+  db: any, project: string, job: string, at: number, is_test = false
+): number {
+  const id = insertRun(db, {
+    project, job, fire_time: at, started_at: at,
+    schedule: "* * * * *", is_test,
+  });
+  appendEvent(db, id, 0, at, "start", {});
+  finishRun(db, id, {
+    status: "skipped_preflight", exit_code: 1, cost_usd: null,
+    summary: "preflight gated", ended_at: at + 10,
+  });
+  collapsePreflightSkip(db, id);
+  return id;
+}
+
+test("collapsePreflightSkip merges consecutive skips into one counter row", () => {
+  const db = freshDb();
+  const first = skipRun(db, "p", "j", 1000);
+  const second = skipRun(db, "p", "j", 2000);
+  const third = skipRun(db, "p", "j", 3000);
+
+  const rows = getRecentRuns(db, "p", "j", 10);
+  expect(rows.length).toBe(1);
+  // The newest row survives with the streak's first started_at and the
+  // latest ended_at/fire_time.
+  expect(rows[0]!.id).toBe(third);
+  expect(rows[0]!.skip_count).toBe(3);
+  expect(rows[0]!.started_at).toBe(1000);
+  expect(rows[0]!.ended_at).toBe(3010);
+  expect(rows[0]!.fire_time).toBe(3000);
+
+  // Absorbed rows' events are gone; the survivor keeps its own.
+  const evs = db.query("SELECT run_id FROM events").all() as any[];
+  expect(evs.length).toBe(1);
+  expect(evs[0]!.run_id).toBe(third);
+  expect([first, second]).not.toContain(evs[0]!.run_id);
+});
+
+test("collapsePreflightSkip does not merge across a non-skip run", () => {
+  const db = freshDb();
+  skipRun(db, "p", "j", 1000);
+  seedRun(db, { project: "p", job: "j", started_at: 2000, status: "success" });
+  skipRun(db, "p", "j", 3000);
+  skipRun(db, "p", "j", 4000);
+
+  const rows = getRecentRuns(db, "p", "j", 10);
+  expect(rows.map((r) => [r.status, r.skip_count])).toEqual([
+    ["skipped_preflight", 2],
+    ["success", 1],
+    ["skipped_preflight", 1],
+  ]);
+});
+
+test("collapsePreflightSkip does not merge across (project, job) or is_test", () => {
+  const db = freshDb();
+  skipRun(db, "p", "j", 1000);
+  skipRun(db, "p", "k", 2000);   // other job — separate row
+  skipRun(db, "p", "j", 3000, true); // test run — must not absorb the cron skip
+
+  expect(getRecentRuns(db, "p", "j", 10).length).toBe(2);
+  expect(getRecentRuns(db, "p", "k", 10).length).toBe(1);
+});
+
+test("counts treat a collapsed row as skip_count runs", () => {
+  const db = freshDb();
+  skipRun(db, "p", "j", 1000);
+  skipRun(db, "p", "j", 2000);
+  skipRun(db, "p", "j", 3000);
+  seedRun(db, { project: "p", job: "j", started_at: 4000, status: "success" });
+
+  const counts = getCountsSince(db, 0);
+  expect(counts.skipped_preflight).toBe(3);
+  expect(counts.success).toBe(1);
+
+  const stats = getJobStatsSince(db, "p", "j", 0);
+  const byStatus = Object.fromEntries(stats.counts.map((r) => [r.status, r.n]));
+  expect(byStatus.skipped_preflight).toBe(3);
+
+  const top = getTopJobsByActivity(db, 0, 10);
+  expect(top[0]!.skipped_count).toBe(3);
+});
+
+test("windowed counts include a streak that started before the window", () => {
+  const db = freshDb();
+  skipRun(db, "p", "j", 1000);
+  skipRun(db, "p", "j", 9000); // collapsed row: started_at=1000, ended_at=9010
+  const counts = getCountsSince(db, 5000);
+  expect(counts.skipped_preflight).toBe(2);
+});
+
+test("deleteOldRuns keeps a collapsed row with recent activity", () => {
+  const db = freshDb();
+  skipRun(db, "p", "j", 1000);
+  skipRun(db, "p", "j", 9000); // still skipping at 9010
+  deleteOldRuns(db, "p", "j", 5000);
+  expect(getRecentRuns(db, "p", "j", 10).length).toBe(1);
+  // Once the last activity ages out, the row is reaped normally.
+  deleteOldRuns(db, "p", "j", 10_000);
+  expect(getRecentRuns(db, "p", "j", 10).length).toBe(0);
+});
+
+// ---------------------------------------------------------------------------
 // Favorites
 // ---------------------------------------------------------------------------
 
@@ -134,8 +242,9 @@ test("getCountsSince returns zero-padded histogram, project-scoped", () => {
   seedRun(db, { project: "a", job: "j", started_at: 1600, status: "failure" });
   seedRun(db, { project: "a", job: "j", started_at: 1700, status: "skipped_preflight" });
   seedRun(db, { project: "b", job: "j", started_at: 1800, status: "success" });
-  // Before window — excluded.
-  seedRun(db, { project: "a", job: "j", started_at: 500, status: "success" });
+  // Before window — excluded. Windowing is on last activity (ended_at =
+  // started_at + 1000 in seedRun), so the run must END before `since`.
+  seedRun(db, { project: "a", job: "j", started_at: -2000, status: "success" });
 
   const all = getCountsSince(db, since);
   expect(all.success).toBe(2);
