@@ -59,4 +59,35 @@ describe("JobSchema", () => {
       JobSchema.parse({ ...minimal, inputs: { enabled: true, bogus: 1 } })
     ).toThrow();
   });
+
+  test("rejects a top-level model key (must live under claude:)", () => {
+    // Regression: zod used to silently strip unknown top-level keys, so a
+    // misplaced `model:` pin was ignored and the job ran the default model.
+    expect(() =>
+      JobSchema.parse({ ...minimal, model: "claude-sonnet-4-6" })
+    ).toThrow(/model/);
+  });
+
+  test("rejects unknown keys inside claude/preflight/logging blocks", () => {
+    expect(() =>
+      JobSchema.parse({
+        ...minimal,
+        claude: { ...minimal.claude, modle: "haiku" },
+      })
+    ).toThrow(/modle/);
+    expect(() =>
+      JobSchema.parse({ ...minimal, preflight: { run: "true", bogus: 1 } })
+    ).toThrow(/bogus/);
+    expect(() =>
+      JobSchema.parse({ ...minimal, logging: { retention_days: 5, bogus: 1 } })
+    ).toThrow(/bogus/);
+  });
+
+  test("claude.model is honored", () => {
+    const parsed = JobSchema.parse({
+      ...minimal,
+      claude: { ...minimal.claude, model: "claude-sonnet-4-6" },
+    });
+    expect(parsed.claude.model).toBe("claude-sonnet-4-6");
+  });
 });

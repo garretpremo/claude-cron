@@ -66,3 +66,19 @@ test("agent / model / append_system_prompt passed through when set", () => {
   expect(argv).toContain("--model"); expect(argv).toContain("opus");
   expect(argv).toContain("--append-system-prompt"); expect(argv).toContain("be terse");
 });
+
+test("model pin is forwarded under both auth modes", () => {
+  for (const auth of ["subscription", "api_key"] as const) {
+    const pinned = JobSchema.parse({
+      ...job, auth,
+      claude: {
+        prompt: "hi", allowed_tools: [], permission_mode: "auto",
+        model: "claude-haiku-4-5-20251001",
+      },
+    });
+    const argv = buildClaudeArgv({ job: pinned, prompt: "hi", cwdAbsolute: "/p" });
+    const i = argv.indexOf("--model");
+    expect(i).toBeGreaterThan(-1);
+    expect(argv[i + 1]).toBe("claude-haiku-4-5-20251001");
+  }
+});

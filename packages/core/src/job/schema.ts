@@ -16,10 +16,13 @@ const Cron = z.string().refine(
   { message: "invalid cron expression" }
 );
 
+// All blocks are .strict(): an unknown key is a config error, not a silent
+// no-op. (A top-level `model:` used to be stripped by zod, so the job ran on
+// the default model with no indication the pin was ignored.)
 const PreflightSchema = z.object({
   run: z.string().min(1),
   timeout: Duration.default("30s"),
-});
+}).strict();
 
 const ClaudeSchema = z
   .object({
@@ -36,6 +39,7 @@ const ClaudeSchema = z
     max_budget_usd: z.number().positive().nullable().default(null),
     extra_args: z.array(z.string()).default([]),
   })
+  .strict()
   .refine(
     (c) => (c.prompt === null) !== (c.prompt_cmd === null),
     { message: "exactly one of claude.prompt or claude.prompt_cmd must be set" }
@@ -43,7 +47,7 @@ const ClaudeSchema = z
 
 const LoggingSchema = z.object({
   retention_days: z.number().int().positive().default(30),
-});
+}).strict();
 
 export const JobSchema = z.object({
   name: z.string().regex(/^[a-z0-9][a-z0-9_-]*$/, "name must be kebab/snake"),
@@ -64,6 +68,6 @@ export const JobSchema = z.object({
   cwd: z.string().default("."),
   timeout: Duration.default("10m"),
   logging: LoggingSchema.default({}),
-});
+}).strict();
 
 export type Job = z.infer<typeof JobSchema>;
